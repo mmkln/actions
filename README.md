@@ -1,4 +1,4 @@
-# FT Canvas
+# Actions
 
 A focused single-board canvas for three first-class card types:
 

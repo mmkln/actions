@@ -25,7 +25,7 @@ export function appView() {
       <header class="topbar">
         <div>
           <span class="eyebrow">Majom</span>
-          <h1>Canvas</h1>
+          <h1>Actions</h1>
         </div>
         <button class="icon-button" type="button" aria-label="Add card" disabled>
           ${icon('plus')}

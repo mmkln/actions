@@ -93,9 +93,9 @@ function shellView() {
           <p class="task-search-popover__status" data-task-search-status></p>
           <div class="task-search-popover__results" id="task-search-results" role="listbox" aria-label="Majom tasks" data-task-results></div>
         </div>
-        <div class="composer__type" aria-hidden="true">${icon('check')}</div>
-        <input class="composer__search" type="search" placeholder="Search and place an existing task…" autocomplete="off" aria-label="Search Majom tasks" aria-controls="task-search-results" aria-expanded="false" data-task-search disabled>
-        <button class="composer__button" type="button" data-add-selected-task disabled>${icon('plus')}<span>Add</span></button>
+        <div class="composer__search-icon" aria-hidden="true">${icon('search')}</div>
+        <input class="composer__search" type="search" placeholder="Search Majom tasks…" autocomplete="off" aria-label="Search Majom tasks" aria-controls="task-search-results" aria-expanded="false" data-task-search disabled>
+        <button class="composer__clear" type="button" aria-label="Clear task search" data-task-search-clear hidden>${icon('close')}</button>
       </div>
     </main>
   `;
@@ -134,7 +134,7 @@ export function mountApp(root, {
     emptyAction: root.querySelector('[data-empty-action]'),
     taskSearchPopover: root.querySelector('[data-task-search-popover]'),
     taskSearch: root.querySelector('[data-task-search]'),
-    addSelectedTask: root.querySelector('[data-add-selected-task]'),
+    taskSearchClear: root.querySelector('[data-task-search-clear]'),
     taskSearchStatus: root.querySelector('[data-task-search-status]'),
     taskResults: root.querySelector('[data-task-results]'),
   };
@@ -271,14 +271,7 @@ export function mountApp(root, {
       || layoutUpdates.isBusy()
     );
     elements.taskSearch.disabled = disabled;
-    const selectedTask = state.taskSearchResults.find(
-      (task) => task.uuid === state.selectedTaskUuid,
-    );
-    elements.addSelectedTask.disabled = (
-      disabled
-      || !selectedTask
-      || taskIsOnCanvas(selectedTask.uuid)
-    );
+    elements.taskSearchClear.hidden = !elements.taskSearch.value;
   }
 
   function planTaskInsertion(task) {
@@ -494,6 +487,12 @@ export function mountApp(root, {
       button.className = 'task-search-popover__result';
       button.setAttribute('role', 'option');
       button.setAttribute('aria-selected', String(selected));
+      button.setAttribute(
+        'aria-label',
+        added
+          ? `${task.title}, on canvas`
+          : `Add ${task.title} to canvas`,
+      );
       button.classList.toggle('is-selected', selected);
       button.disabled = added || state.saving;
 
@@ -509,7 +508,12 @@ export function mountApp(root, {
 
       const action = document.createElement('span');
       action.className = 'task-search-popover__result-action';
-      action.textContent = added ? 'Added' : 'Add';
+      action.classList.toggle('is-added', added);
+      if (added) {
+        action.textContent = '✓ On canvas';
+      } else {
+        action.innerHTML = icon('plus');
+      }
 
       button.append(copy, action);
       button.addEventListener('pointermove', () => {
@@ -756,6 +760,12 @@ export function mountApp(root, {
     if (!state.taskSearchOpen) openTaskSearch();
   });
   elements.taskSearch.addEventListener('input', scheduleTaskSearch);
+  elements.taskSearchClear.addEventListener('click', () => {
+    elements.taskSearch.value = '';
+    syncTaskControls();
+    scheduleTaskSearch();
+    elements.taskSearch.focus();
+  });
   elements.taskSearch.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
@@ -772,14 +782,6 @@ export function mountApp(root, {
       event.preventDefault();
       event.stopPropagation();
       closeTaskSearch();
-    }
-  });
-  elements.addSelectedTask.addEventListener('click', () => {
-    const task = selectedTask();
-    if (task) {
-      void addMajomTask(task);
-    } else {
-      openTaskSearch();
     }
   });
   elements.emptyAction.addEventListener('click', () => {

@@ -16,5 +16,7 @@ test('renders the card kind through its icon without a duplicate text label', ()
   assert.doesNotMatch(markup, /canvas-card__type/);
   assert.doesNotMatch(markup, /canvas-card__detail/);
   assert.match(markup, /connection-action-button/);
+  assert.match(markup, /aria-label="Remove from this Board"/);
+  assert.match(markup, /canvas-card-remove/);
 });
 

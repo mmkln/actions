@@ -109,6 +109,11 @@ function shellView() {
         <button class="connection-toolbar__done" type="button" data-connection-done>Done</button>
       </div>
 
+      <div class="canvas-action-toast" role="status" data-canvas-action-toast hidden>
+        <span data-canvas-action-message>Removed from canvas</span>
+        <button type="button" data-canvas-action-undo>Undo</button>
+      </div>
+
       <div class="composer" role="search" aria-label="Search and add resources">
         <div class="resource-search-popover" data-resource-search-popover hidden>
           <p class="resource-search-popover__status" data-resource-search-status></p>
@@ -163,6 +168,9 @@ export function mountApp(root, {
     connectionCancel: root.querySelector('[data-connection-cancel]'),
     connectionCount: root.querySelector('[data-connection-count]'),
     connectionDone: root.querySelector('[data-connection-done]'),
+    canvasActionToast: root.querySelector('[data-canvas-action-toast]'),
+    canvasActionMessage: root.querySelector('[data-canvas-action-message]'),
+    canvasActionUndo: root.querySelector('[data-canvas-action-undo]'),
   };
 
   const state = {
@@ -184,6 +192,7 @@ export function mountApp(root, {
     connectionEditor: null,
     connectionSaving: false,
     connectionError: null,
+    pendingRemoval: null,
   };
 
   const cardElements = new Map();
@@ -191,6 +200,7 @@ export function mountApp(root, {
   let searchTimer = null;
   let searchGeneration = 0;
   let hydrationGeneration = 0;
+  let removalTimer = null;
 
   function resourceKey(kind, resourceId) {
     return `${kind}:${resourceId}`;
@@ -898,6 +908,100 @@ export function mountApp(root, {
     }
   }
 
+  function hideCanvasActionToast() {
+    window.clearTimeout(removalTimer);
+    removalTimer = null;
+    state.pendingRemoval = null;
+    elements.canvasActionToast.hidden = true;
+  }
+
+  function showCanvasActionToast(message, {
+    undoToken = null,
+    duration = 4_000,
+  } = {}) {
+    window.clearTimeout(removalTimer);
+    state.pendingRemoval = undoToken ? { undoToken } : null;
+    elements.canvasActionMessage.textContent = message;
+    elements.canvasActionUndo.hidden = !undoToken;
+    elements.canvasActionUndo.disabled = false;
+    elements.canvasActionToast.hidden = false;
+    removalTimer = window.setTimeout(hideCanvasActionToast, duration);
+  }
+
+  async function removeItemFromCanvas(item) {
+    if (
+      !state.canvas
+      || state.saving
+      || state.connectionSaving
+      || state.connectionEditor
+    ) return;
+
+    await layoutUpdates.whenIdle();
+    if (!itemById(item.id) || state.saving) return;
+
+    const previousItems = state.canvas.items;
+    const previousConnections = state.connections;
+    state.saving = true;
+    root.dataset.saving = 'true';
+    syncResourceControls();
+    state.canvas.items = previousItems.filter(({ id }) => id !== item.id);
+    state.connections = previousConnections.filter((connection) => (
+      connection.sourceItemId !== item.id
+      && connection.targetItemId !== item.id
+    ));
+    renderCanvas();
+
+    try {
+      const result = await api.removeItem(item.id);
+      state.canvas.revision = result.revision;
+      showCanvasActionToast('Removed from canvas', {
+        undoToken: result.undo_token,
+        duration: result.undo_expires_in * 1_000,
+      });
+    } catch (error) {
+      state.canvas.items = previousItems;
+      state.connections = previousConnections;
+      renderCanvas();
+      showCanvasActionToast(error.message || 'Couldn’t remove from canvas.');
+    } finally {
+      state.saving = false;
+      delete root.dataset.saving;
+      syncResourceControls();
+    }
+  }
+
+  async function undoItemRemoval() {
+    const removal = state.pendingRemoval;
+    if (!state.canvas || !removal || state.saving) return;
+
+    window.clearTimeout(removalTimer);
+    removalTimer = null;
+    state.pendingRemoval = null;
+    state.saving = true;
+    root.dataset.saving = 'true';
+    elements.canvasActionUndo.disabled = true;
+    syncResourceControls();
+
+    try {
+      const result = await api.restoreItem(removal.undoToken);
+      state.canvas.revision = result.revision;
+      state.canvas.items.push(result.item);
+      state.connections.push(
+        ...result.connections.map(normalizeConnection),
+      );
+      elements.canvasActionToast.hidden = true;
+      renderCanvas();
+    } catch (error) {
+      await loadCanvas();
+      showCanvasActionToast(error.message || 'Couldn’t restore the card.');
+    } finally {
+      state.saving = false;
+      delete root.dataset.saving;
+      elements.canvasActionUndo.disabled = false;
+      syncResourceControls();
+    }
+  }
+
   async function loadResources() {
     const generation = ++hydrationGeneration;
     const references = [];
@@ -971,9 +1075,17 @@ export function mountApp(root, {
         title,
       });
       const connectionButton = position.querySelector('.connection-button');
+      const removeButton = position.querySelector('.canvas-card-remove');
       connectionButton.addEventListener('click', (event) => {
         event.stopPropagation();
         handleConnectionButton(item);
+      });
+      removeButton.addEventListener('pointerdown', (event) => {
+        event.stopPropagation();
+      });
+      removeButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        void removeItemFromCanvas(item);
       });
       position.addEventListener('pointerdown', (event) => {
         beginDrag(event, item, position);
@@ -1101,6 +1213,7 @@ export function mountApp(root, {
     state.connectionEditor = null;
     state.connectionError = null;
     state.resources = new Map();
+    hideCanvasActionToast();
     layoutUpdates.clear();
     state.error = null;
     state.user = null;
@@ -1148,6 +1261,9 @@ export function mountApp(root, {
   elements.connectionCancel.addEventListener('click', cancelConnectionEditor);
   elements.connectionDone.addEventListener('click', () => {
     void commitConnectionEditor();
+  });
+  elements.canvasActionUndo.addEventListener('click', () => {
+    void undoItemRemoval();
   });
 
   themeController.subscribe(renderAppearance);

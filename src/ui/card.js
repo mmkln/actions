@@ -25,6 +25,9 @@ export function cardView({ type, title }) {
       </div>
     </article>
     <button class="connection-button connection-action-button" type="button"></button>
+    <button class="canvas-card-remove" type="button" title="Remove from this Board" aria-label="Remove from this Board">
+      ${icon('minus')}
+    </button>
   `;
 }
 

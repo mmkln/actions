@@ -85,3 +85,24 @@ test('replaces one item’s connections with the backend revision contract', asy
   });
 });
 
+test('removes and restores one canvas item through the undo contract', async () => {
+  const requests = [];
+  const api = createActionsApi({
+    request: async (url, options) => {
+      requests.push({ url, options });
+      return {};
+    },
+  });
+
+  await api.removeItem('item-id');
+  await api.restoreItem('signed-undo-token');
+
+  assert.equal(requests[0].url, '/canvas/items/item-id/');
+  assert.equal(requests[0].options.method, 'DELETE');
+  assert.equal(requests[1].url, '/canvas/items/restore/');
+  assert.equal(requests[1].options.method, 'POST');
+  assert.deepEqual(JSON.parse(requests[1].options.body), {
+    undo_token: 'signed-undo-token',
+  });
+});
+

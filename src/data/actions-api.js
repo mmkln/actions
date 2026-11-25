@@ -38,6 +38,13 @@ export function createActionsApi({ request }) {
     removeItem(itemId) {
       return request(`/canvas/items/${itemId}/`, { method: 'DELETE' });
     },
+
+    restoreItem(undoToken) {
+      return request('/canvas/items/restore/', {
+        method: 'POST',
+        body: JSON.stringify({ undo_token: undoToken }),
+      });
+    },
   });
 }
 

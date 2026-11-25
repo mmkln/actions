@@ -488,6 +488,63 @@ button:disabled {
   pointer-events: none;
 }
 
+.canvas-card-remove {
+  position: absolute;
+  z-index: 4;
+  top: -9px;
+  right: -9px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  place-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-control);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.canvas-card-remove .icon {
+  width: 17px;
+  height: 17px;
+  pointer-events: none;
+}
+
+.canvas-card-position:hover .canvas-card-remove,
+.canvas-card-position:focus-within .canvas-card-remove {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.canvas-card-remove:hover,
+.canvas-card-remove:focus-visible {
+  color: var(--accent);
+  border-color: var(--border-hover);
+  outline: 0;
+  background: var(--surface-hover);
+}
+
+.canvas-card-remove:focus-visible {
+  box-shadow: 0 0 0 3px var(--focus-ring), var(--shadow-control);
+}
+
+.canvas-card-remove:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+@media (hover: none) {
+  .canvas-card-remove {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .connection-action-button {
   display: grid;
   width: 30px;
@@ -771,6 +828,57 @@ button:disabled {
   font-size: 12px;
   text-align: center;
   white-space: nowrap;
+}
+
+.canvas-action-toast {
+  position: fixed;
+  z-index: 12;
+  bottom: calc(var(--composer-bottom-inset) + var(--composer-height) + 12px);
+  left: 50%;
+  display: flex;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  min-height: 44px;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 9px 8px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  color: var(--text-primary);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-panel);
+  transform: translateX(-50%);
+  backdrop-filter: blur(18px);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.canvas-action-toast[hidden] {
+  display: none;
+}
+
+.canvas-action-toast button {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--accent);
+  cursor: pointer;
+  background: var(--surface-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.canvas-action-toast button:hover,
+.canvas-action-toast button:focus-visible {
+  color: #fff;
+  outline: 0;
+  background: var(--accent);
+}
+
+.canvas-action-toast button:disabled {
+  cursor: wait;
+  opacity: 0.5;
 }
 
 .composer:focus-within {

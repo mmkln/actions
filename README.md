@@ -26,6 +26,14 @@ Set `VITE_ACTIONS_AUTH_MODE=dev` only when the backend has
 `ENABLE_DEV_AUTH=true` and an isolated passwordless development session is
 explicitly wanted.
 
+## Deployment
+
+The frontend uses `http://127.0.0.1:8002/api/v1` on `localhost` and
+`127.0.0.1`. On any deployed hostname it uses the Actions backend at
+`https://mxllactions.pythonanywhere.com/api/v1`, matching the production URL
+selection used by Flying Thoughts. `VITE_ACTIONS_API_URL` remains available as
+an explicit build-time override for staging or other environments.
+
 ## Structure
 
 - `src/domain` — shared card types and future domain rules;

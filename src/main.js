@@ -1,6 +1,7 @@
 import './styles.css';
 
 import { mountApp } from './app.js';
+import { resolveActionsApiUrl } from './config.js';
 import { createApiClient } from './data/api-client.js';
 import { createActionsApi } from './data/actions-api.js';
 import { createAuthSession } from './data/auth-session.js';
@@ -13,9 +14,10 @@ if (!root) {
   throw new Error('App root was not found');
 }
 
-const apiBaseUrl = (
-  import.meta.env.VITE_ACTIONS_API_URL ?? 'http://127.0.0.1:8002/api/v1'
-).replace(/\/$/, '');
+const apiBaseUrl = resolveActionsApiUrl({
+  configuredUrl: import.meta.env.VITE_ACTIONS_API_URL,
+  hostname: window.location.hostname,
+});
 
 const authSession = createAuthSession({
   apiBaseUrl,

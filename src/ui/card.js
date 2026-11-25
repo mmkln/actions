@@ -1,6 +1,15 @@
 import { CARD_TYPE_CONFIG, isCardType } from '../domain/card-types.js';
 import { icon } from './icons.js';
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 export function cardView({ type, title, detail }) {
   if (!isCardType(type)) {
     throw new TypeError(`Unsupported card type: ${type}`);
@@ -13,8 +22,8 @@ export function cardView({ type, title, detail }) {
       <div class="canvas-card__icon">${icon(config.icon)}</div>
       <div class="canvas-card__body">
         <span class="canvas-card__type">${config.label}</span>
-        <p>${title}</p>
-        ${detail ? `<span class="canvas-card__detail">${detail}</span>` : ''}
+        <p>${escapeHtml(title)}</p>
+        ${detail ? `<span class="canvas-card__detail">${escapeHtml(detail)}</span>` : ''}
       </div>
     </article>
   `;

@@ -10,7 +10,10 @@ import { createCanvasMinimap } from './canvas/minimap.js';
 import { planCanvasInsertion } from './canvas/placement.js';
 import { createCanvasRenderScheduler } from './canvas/render-scheduler.js';
 import { createCanvasViewportController } from './canvas/viewport-controller.js';
-import { resolveResource } from './domain/demo-resources.js';
+import {
+  findDemoResource,
+  resolveResource,
+} from './domain/demo-resources.js';
 import { cardView } from './ui/card.js';
 import { icon } from './ui/icons.js';
 
@@ -88,14 +91,14 @@ function shellView() {
         </div>
       </aside>
 
-      <div class="composer" role="search" aria-label="Search and add a Majom task">
-        <div class="task-search-popover" data-task-search-popover hidden>
-          <p class="task-search-popover__status" data-task-search-status></p>
-          <div class="task-search-popover__results" id="task-search-results" role="listbox" aria-label="Majom tasks" data-task-results></div>
+      <div class="composer" role="search" aria-label="Search and add resources">
+        <div class="resource-search-popover" data-resource-search-popover hidden>
+          <p class="resource-search-popover__status" data-resource-search-status></p>
+          <div class="resource-search-popover__results" id="resource-search-results" role="listbox" aria-label="Tasks and thoughts" data-resource-results></div>
         </div>
         <div class="composer__search-icon" aria-hidden="true">${icon('search')}</div>
-        <input class="composer__search" type="search" placeholder="Search Majom tasks…" autocomplete="off" aria-label="Search Majom tasks" aria-controls="task-search-results" aria-expanded="false" data-task-search disabled>
-        <button class="composer__clear" type="button" aria-label="Clear task search" data-task-search-clear hidden>${icon('close')}</button>
+        <input class="composer__search" type="search" placeholder="Search tasks and thoughts…" autocomplete="off" aria-label="Search tasks and thoughts" aria-controls="resource-search-results" aria-expanded="false" data-resource-search disabled>
+        <button class="composer__clear" type="button" aria-label="Clear resource search" data-resource-search-clear hidden>${icon('close')}</button>
       </div>
     </main>
   `;
@@ -103,7 +106,7 @@ function shellView() {
 
 export function mountApp(root, {
   api,
-  majomTasksApi,
+  catalogApi,
   authSession,
   themeController,
 }) {
@@ -132,11 +135,11 @@ export function mountApp(root, {
     emptyTitle: root.querySelector('[data-empty-title]'),
     emptyCopy: root.querySelector('[data-empty-copy]'),
     emptyAction: root.querySelector('[data-empty-action]'),
-    taskSearchPopover: root.querySelector('[data-task-search-popover]'),
-    taskSearch: root.querySelector('[data-task-search]'),
-    taskSearchClear: root.querySelector('[data-task-search-clear]'),
-    taskSearchStatus: root.querySelector('[data-task-search-status]'),
-    taskResults: root.querySelector('[data-task-results]'),
+    resourceSearchPopover: root.querySelector('[data-resource-search-popover]'),
+    resourceSearch: root.querySelector('[data-resource-search]'),
+    resourceSearchClear: root.querySelector('[data-resource-search-clear]'),
+    resourceSearchStatus: root.querySelector('[data-resource-search-status]'),
+    resourceResults: root.querySelector('[data-resource-results]'),
   };
 
   const state = {
@@ -146,20 +149,25 @@ export function mountApp(root, {
     error: null,
     sessionStatus: 'checking',
     user: null,
-    taskResources: new Map(),
-    taskResourcesLoading: false,
-    taskSearchResults: [],
-    taskSearchLoading: false,
-    taskSearchError: null,
-    selectedTaskUuid: null,
-    taskSearchOpen: false,
+    resources: new Map(),
+    resourcesLoading: false,
+    searchResults: [],
+    searchLoading: false,
+    searchError: null,
+    unavailableSources: [],
+    selectedResourceKey: null,
+    searchOpen: false,
   };
 
   const cardElements = new Map();
   let viewportController = null;
-  let taskSearchTimer = null;
-  let taskSearchGeneration = 0;
-  let taskHydrationGeneration = 0;
+  let searchTimer = null;
+  let searchGeneration = 0;
+  let hydrationGeneration = 0;
+
+  function resourceKey(kind, resourceId) {
+    return `${kind}:${resourceId}`;
+  }
 
   function itemById(itemId) {
     return (state.canvas?.items ?? []).find(({ id }) => id === itemId) ?? null;
@@ -255,7 +263,7 @@ export function mountApp(root, {
     },
     onBusyChange(busy) {
       root.toggleAttribute('data-layout-saving', busy);
-      syncTaskControls();
+      syncResourceControls();
     },
     async onError(error) {
       state.error = error;
@@ -263,18 +271,18 @@ export function mountApp(root, {
     },
   });
 
-  function syncTaskControls() {
+  function syncResourceControls() {
     const disabled = (
       state.sessionStatus !== 'authenticated'
       || state.loading
       || state.saving
       || layoutUpdates.isBusy()
     );
-    elements.taskSearch.disabled = disabled;
-    elements.taskSearchClear.hidden = !elements.taskSearch.value;
+    elements.resourceSearch.disabled = disabled;
+    elements.resourceSearchClear.hidden = !elements.resourceSearch.value;
   }
 
-  function planTaskInsertion(task) {
+  function planResourceInsertion(resource) {
     const bounds = elements.canvasViewport.getBoundingClientRect();
     const obstacles = (state.canvas?.items ?? []).map((item) => ({
         id: item.id,
@@ -289,7 +297,7 @@ export function mountApp(root, {
     });
     const insertion = planCanvasInsertion({
       candidate: {
-        id: `task:${task.uuid}`,
+        id: resourceKey(resource.kind, resource.resource_id),
         ...desired,
         width: CANVAS_CARD_WIDTH,
         height: CANVAS_CARD_HEIGHT,
@@ -432,186 +440,227 @@ export function mountApp(root, {
     position.addEventListener('pointercancel', cancelDrag);
   }
 
-  function taskIsOnCanvas(taskUuid) {
+  function resourceIsOnCanvas(resource) {
     return (state.canvas?.items ?? []).some(
-      (item) => item.kind === 'task' && item.resource_id === taskUuid,
+      (item) => (
+        item.kind === resource.kind
+        && item.resource_id === resource.resource_id
+      ),
     );
   }
 
-  function selectFirstAvailableTask() {
-    const selectedIsAvailable = state.taskSearchResults.some(
-      (task) => (
-        task.uuid === state.selectedTaskUuid
-        && !taskIsOnCanvas(task.uuid)
+  function selectFirstAvailableResource() {
+    const selectedIsAvailable = state.searchResults.some(
+      (resource) => (
+        resourceKey(resource.kind, resource.resource_id)
+          === state.selectedResourceKey
+        && !resourceIsOnCanvas(resource)
       ),
     );
     if (!selectedIsAvailable) {
-      state.selectedTaskUuid = state.taskSearchResults.find(
-        (task) => !taskIsOnCanvas(task.uuid),
-      )?.uuid ?? null;
-    }
-  }
-
-  function renderTaskSearch() {
-    elements.taskResults.replaceChildren();
-    elements.taskSearchPopover.hidden = !state.taskSearchOpen;
-    elements.taskSearch.setAttribute(
-      'aria-expanded',
-      String(state.taskSearchOpen),
-    );
-    syncTaskControls();
-
-    if (!state.taskSearchOpen) return;
-
-    if (state.taskSearchLoading) {
-      elements.taskSearchStatus.textContent = 'Loading Majom tasks…';
-      return;
-    }
-    if (state.taskSearchError) {
-      elements.taskSearchStatus.textContent = state.taskSearchError.message;
-      return;
-    }
-    if (!state.taskSearchResults.length) {
-      elements.taskSearchStatus.textContent = 'No matching tasks.';
-      return;
-    }
-
-    selectFirstAvailableTask();
-    elements.taskSearchStatus.textContent = '';
-    const fragment = document.createDocumentFragment();
-    state.taskSearchResults.forEach((task) => {
-      const added = taskIsOnCanvas(task.uuid);
-      const selected = task.uuid === state.selectedTaskUuid;
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'task-search-popover__result';
-      button.setAttribute('role', 'option');
-      button.setAttribute('aria-selected', String(selected));
-      button.setAttribute(
-        'aria-label',
-        added
-          ? `${task.title}, on canvas`
-          : `Add ${task.title} to canvas`,
+      const firstAvailable = state.searchResults.find(
+        (resource) => !resourceIsOnCanvas(resource),
       );
-      button.classList.toggle('is-selected', selected);
-      button.disabled = added || state.saving;
-
-      const copy = document.createElement('span');
-      copy.className = 'task-search-popover__result-copy';
-      const title = document.createElement('strong');
-      title.textContent = task.title;
-      const meta = document.createElement('small');
-      meta.textContent = task.is_completed
-        ? 'Completed'
-        : task.status;
-      copy.append(title, meta);
-
-      const action = document.createElement('span');
-      action.className = 'task-search-popover__result-action';
-      action.classList.toggle('is-added', added);
-      if (added) {
-        action.textContent = '✓ On canvas';
-      } else {
-        action.innerHTML = icon('plus');
-      }
-
-      button.append(copy, action);
-      button.addEventListener('pointermove', () => {
-        if (added || state.selectedTaskUuid === task.uuid) return;
-        state.selectedTaskUuid = task.uuid;
-        renderTaskSearch();
-      });
-      button.addEventListener('click', () => {
-        state.selectedTaskUuid = task.uuid;
-        void addMajomTask(task);
-      });
-      fragment.append(button);
-    });
-    elements.taskResults.append(fragment);
-    syncTaskControls();
+      state.selectedResourceKey = firstAvailable
+        ? resourceKey(firstAvailable.kind, firstAvailable.resource_id)
+        : null;
+    }
   }
 
-  async function searchMajomTasks() {
-    const generation = ++taskSearchGeneration;
-    state.taskSearchLoading = true;
-    state.taskSearchError = null;
-    renderTaskSearch();
+  function createResourceResult(resource) {
+    const key = resourceKey(resource.kind, resource.resource_id);
+    const added = resourceIsOnCanvas(resource);
+    const selected = key === state.selectedResourceKey;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'resource-search-popover__result';
+    button.setAttribute('role', 'option');
+    button.setAttribute('aria-selected', String(selected));
+    button.setAttribute(
+      'aria-label',
+      added
+        ? `${resource.title}, on canvas`
+        : `Add ${resource.title} to canvas`,
+    );
+    button.classList.toggle('is-selected', selected);
+    button.disabled = added || state.saving;
+
+    const resourceIcon = document.createElement('span');
+    resourceIcon.className = `resource-search-popover__result-icon is-${resource.kind}`;
+    resourceIcon.innerHTML = icon(resource.kind === 'task' ? 'check' : 'spark');
+
+    const copy = document.createElement('span');
+    copy.className = 'resource-search-popover__result-copy';
+    const title = document.createElement('strong');
+    title.textContent = resource.title;
+    const meta = document.createElement('small');
+    meta.textContent = resource.detail;
+    copy.append(title, meta);
+
+    const action = document.createElement('span');
+    action.className = 'resource-search-popover__result-action';
+    action.classList.toggle('is-added', added);
+    if (added) {
+      action.textContent = '✓ On canvas';
+    } else {
+      action.innerHTML = icon('plus');
+    }
+
+    button.append(resourceIcon, copy, action);
+    button.addEventListener('pointermove', () => {
+      if (added || state.selectedResourceKey === key) return;
+      state.selectedResourceKey = key;
+      renderResourceSearch();
+    });
+    button.addEventListener('click', () => {
+      state.selectedResourceKey = key;
+      void addResource(resource);
+    });
+    return button;
+  }
+
+  function renderResourceSearch() {
+    elements.resourceResults.replaceChildren();
+    elements.resourceSearchPopover.hidden = !state.searchOpen;
+    elements.resourceSearch.setAttribute(
+      'aria-expanded',
+      String(state.searchOpen),
+    );
+    syncResourceControls();
+
+    if (!state.searchOpen) return;
+
+    if (state.searchLoading) {
+      elements.resourceSearchStatus.textContent = 'Searching tasks and thoughts…';
+      return;
+    }
+    if (state.searchError) {
+      elements.resourceSearchStatus.textContent = state.searchError.message;
+      return;
+    }
+    if (!state.searchResults.length) {
+      elements.resourceSearchStatus.textContent = 'No matching tasks or thoughts.';
+      return;
+    }
+
+    selectFirstAvailableResource();
+    elements.resourceSearchStatus.textContent = state.unavailableSources.length
+      ? 'Some sources are temporarily unavailable.'
+      : '';
+    const fragment = document.createDocumentFragment();
+    [
+      ['task', 'Tasks'],
+      ['thought', 'Thoughts'],
+    ].forEach(([kind, label]) => {
+      const resources = state.searchResults.filter(
+        (resource) => resource.kind === kind,
+      );
+      if (!resources.length) return;
+      const group = document.createElement('section');
+      group.className = 'resource-search-popover__group';
+      group.setAttribute('role', 'group');
+      group.setAttribute('aria-label', label);
+      const heading = document.createElement('h3');
+      heading.textContent = label;
+      group.append(heading, ...resources.map(createResourceResult));
+      fragment.append(group);
+    });
+    elements.resourceResults.append(fragment);
+    syncResourceControls();
+  }
+
+  async function searchResources() {
+    const generation = ++searchGeneration;
+    state.searchLoading = true;
+    state.searchError = null;
+    state.unavailableSources = [];
+    renderResourceSearch();
     try {
-      const payload = await majomTasksApi.search({
-        search: elements.taskSearch.value.trim(),
+      const payload = await catalogApi.search({
+        query: elements.resourceSearch.value.trim(),
       });
-      if (generation !== taskSearchGeneration) return;
-      state.taskSearchResults = payload.results ?? [];
-      selectFirstAvailableTask();
+      if (generation !== searchGeneration) return;
+      state.searchResults = payload.results ?? [];
+      state.unavailableSources = payload.unavailable_sources ?? [];
+      selectFirstAvailableResource();
     } catch (error) {
-      if (generation !== taskSearchGeneration) return;
-      state.taskSearchResults = [];
-      state.taskSearchError = error;
+      if (generation !== searchGeneration) return;
+      state.searchResults = [];
+      state.searchError = error;
     } finally {
-      if (generation === taskSearchGeneration) {
-        state.taskSearchLoading = false;
-        renderTaskSearch();
+      if (generation === searchGeneration) {
+        state.searchLoading = false;
+        renderResourceSearch();
       }
     }
   }
 
-  function scheduleTaskSearch() {
-    window.clearTimeout(taskSearchTimer);
-    state.taskSearchOpen = true;
-    state.selectedTaskUuid = null;
-    renderTaskSearch();
-    taskSearchTimer = window.setTimeout(searchMajomTasks, 180);
+  function scheduleResourceSearch() {
+    window.clearTimeout(searchTimer);
+    state.searchOpen = true;
+    state.selectedResourceKey = null;
+    renderResourceSearch();
+    searchTimer = window.setTimeout(searchResources, 180);
   }
 
-  function openTaskSearch() {
+  function openResourceSearch() {
     if (state.sessionStatus !== 'authenticated') return;
     closeAccountMenu();
-    state.taskSearchOpen = true;
-    state.taskSearchError = null;
-    renderTaskSearch();
-    if (!state.taskSearchLoading) void searchMajomTasks();
-    window.requestAnimationFrame(() => elements.taskSearch.focus());
+    state.searchOpen = true;
+    state.searchError = null;
+    renderResourceSearch();
+    if (!state.searchLoading) void searchResources();
+    window.requestAnimationFrame(() => elements.resourceSearch.focus());
   }
 
-  function closeTaskSearch() {
-    state.taskSearchOpen = false;
-    state.taskSearchLoading = false;
-    taskSearchGeneration += 1;
-    window.clearTimeout(taskSearchTimer);
-    renderTaskSearch();
+  function closeResourceSearch() {
+    state.searchOpen = false;
+    state.searchLoading = false;
+    searchGeneration += 1;
+    window.clearTimeout(searchTimer);
+    renderResourceSearch();
   }
 
-  function moveTaskSelection(direction) {
-    const available = state.taskSearchResults.filter(
-      (task) => !taskIsOnCanvas(task.uuid),
+  function moveResourceSelection(direction) {
+    const available = state.searchResults.filter(
+      (resource) => !resourceIsOnCanvas(resource),
     );
     if (!available.length) return;
     const currentIndex = available.findIndex(
-      (task) => task.uuid === state.selectedTaskUuid,
+      (resource) => (
+        resourceKey(resource.kind, resource.resource_id)
+          === state.selectedResourceKey
+      ),
     );
     const nextIndex = currentIndex < 0
       ? 0
       : (currentIndex + direction + available.length) % available.length;
-    state.selectedTaskUuid = available[nextIndex].uuid;
-    renderTaskSearch();
+    state.selectedResourceKey = resourceKey(
+      available[nextIndex].kind,
+      available[nextIndex].resource_id,
+    );
+    renderResourceSearch();
   }
 
-  function selectedTask() {
-    return state.taskSearchResults.find(
-      (task) => task.uuid === state.selectedTaskUuid,
+  function selectedResource() {
+    return state.searchResults.find(
+      (resource) => (
+        resourceKey(resource.kind, resource.resource_id)
+          === state.selectedResourceKey
+      ),
     ) ?? null;
   }
 
-  async function addMajomTask(task) {
-    if (state.saving || taskIsOnCanvas(task.uuid)) return;
+  async function addResource(resource) {
+    if (state.saving || resourceIsOnCanvas(resource)) return;
 
     state.saving = true;
-    state.taskSearchError = null;
+    state.searchError = null;
     root.dataset.saving = 'true';
-    syncTaskControls();
-    renderTaskSearch();
+    syncResourceControls();
+    renderResourceSearch();
     try {
-      const insertion = planTaskInsertion(task);
+      const insertion = planResourceInsertion(resource);
       if (insertion.movedExisting.length > 0) {
         const layoutResult = await api.updateLayout({
           baseRevision: state.canvas.revision,
@@ -625,55 +674,71 @@ export function mountApp(root, {
       }
 
       const result = await api.addItem({
-        kind: 'task',
-        resource_id: task.uuid,
+        kind: resource.kind,
+        resource_id: resource.resource_id,
         x: insertion.position.x,
         y: insertion.position.y,
       });
       state.canvas.revision = result.revision;
       state.canvas.items.push(result.item);
-      state.taskResources.set(task.uuid, task);
+      state.resources.set(
+        resourceKey(resource.kind, resource.resource_id),
+        resource,
+      );
       renderCanvas();
-      elements.taskSearch.value = '';
-      state.taskSearchResults = [];
-      state.selectedTaskUuid = null;
-      closeTaskSearch();
+      elements.resourceSearch.value = '';
+      state.searchResults = [];
+      state.selectedResourceKey = null;
+      closeResourceSearch();
     } catch (error) {
-      state.taskSearchError = error;
+      state.searchError = error;
     } finally {
       state.saving = false;
       delete root.dataset.saving;
-      syncTaskControls();
-      renderTaskSearch();
+      syncResourceControls();
+      renderResourceSearch();
     }
   }
 
-  async function loadTaskResources() {
-    const generation = ++taskHydrationGeneration;
-    const taskIds = (state.canvas?.items ?? [])
-      .filter((item) => item.kind === 'task')
-      .map((item) => item.resource_id);
+  async function loadResources() {
+    const generation = ++hydrationGeneration;
+    const references = [];
+    const seen = new Set();
+    (state.canvas?.items ?? [])
+      .filter((item) => item.kind === 'task' || item.kind === 'thought')
+      .forEach((item) => {
+        const key = resourceKey(item.kind, item.resource_id);
+        if (seen.has(key)) return;
+        seen.add(key);
+        references.push({
+          kind: item.kind,
+          resource_id: item.resource_id,
+        });
+      });
 
-    state.taskResources = new Map();
-    if (!taskIds.length) {
-      state.taskResourcesLoading = false;
+    state.resources = new Map();
+    if (!references.length) {
+      state.resourcesLoading = false;
       return;
     }
 
-    state.taskResourcesLoading = true;
+    state.resourcesLoading = true;
     renderCanvas();
     try {
-      const payload = await majomTasksApi.resolve(taskIds);
-      if (generation !== taskHydrationGeneration) return;
-      state.taskResources = new Map(
-        (payload.results ?? []).map((task) => [task.uuid, task]),
+      const payload = await catalogApi.resolve(references);
+      if (generation !== hydrationGeneration) return;
+      state.resources = new Map(
+        (payload.results ?? []).map((resource) => [
+          resourceKey(resource.kind, resource.resource_id),
+          resource,
+        ]),
       );
     } catch {
-      if (generation !== taskHydrationGeneration) return;
-      state.taskResources = new Map();
+      if (generation !== hydrationGeneration) return;
+      state.resources = new Map();
     } finally {
-      if (generation === taskHydrationGeneration) {
-        state.taskResourcesLoading = false;
+      if (generation === hydrationGeneration) {
+        state.resourcesLoading = false;
         renderCanvas();
       }
     }
@@ -687,14 +752,18 @@ export function mountApp(root, {
     cardElements.clear();
 
     for (const item of items) {
-      const resource = item.kind === 'task'
-        ? state.taskResources.get(item.resource_id)
-        : resolveResource(item);
-      const title = resource?.title ?? (
-        state.taskResourcesLoading
-          ? 'Loading task…'
-          : 'Task unavailable'
+      const isExternalResource = item.kind === 'task' || item.kind === 'thought';
+      const hydratedResource = state.resources.get(
+        resourceKey(item.kind, item.resource_id),
       );
+      const demoResource = findDemoResource(item);
+      const resource = hydratedResource ?? demoResource ?? resolveResource(item);
+      const title = (
+        state.resourcesLoading
+        && isExternalResource
+        && !hydratedResource
+        && !demoResource
+      ) ? 'Loading…' : resource.title;
       const position = document.createElement('div');
       position.className = 'canvas-card-position';
       position.dataset.itemId = item.id;
@@ -711,7 +780,7 @@ export function mountApp(root, {
     }
     renderScheduler.request({ allItems: true, minimap: true });
 
-    syncTaskControls();
+    syncResourceControls();
 
     elements.emptyState.hidden = items.length > 0 && !state.error;
     elements.emptyAction.hidden = true;
@@ -732,9 +801,9 @@ export function mountApp(root, {
     } else {
       elements.emptyAction.hidden = false;
       elements.emptyTitle.textContent = 'Your Actions canvas is empty';
-      elements.emptyCopy.textContent = 'Add an existing Majom task to begin.';
-      elements.emptyAction.textContent = 'Add Majom task';
-      elements.emptyAction.dataset.action = 'task';
+      elements.emptyCopy.textContent = 'Search for a task or thought to begin.';
+      elements.emptyAction.textContent = 'Search resources';
+      elements.emptyAction.dataset.action = 'resource';
     }
   }
 
@@ -747,7 +816,7 @@ export function mountApp(root, {
     try {
       state.canvas = await api.getCanvas();
       renderCanvas();
-      void loadTaskResources();
+      void loadResources();
     } catch (error) {
       state.error = error;
     } finally {
@@ -756,32 +825,32 @@ export function mountApp(root, {
     }
   }
 
-  elements.taskSearch.addEventListener('focus', () => {
-    if (!state.taskSearchOpen) openTaskSearch();
+  elements.resourceSearch.addEventListener('focus', () => {
+    if (!state.searchOpen) openResourceSearch();
   });
-  elements.taskSearch.addEventListener('input', scheduleTaskSearch);
-  elements.taskSearchClear.addEventListener('click', () => {
-    elements.taskSearch.value = '';
-    syncTaskControls();
-    scheduleTaskSearch();
-    elements.taskSearch.focus();
+  elements.resourceSearch.addEventListener('input', scheduleResourceSearch);
+  elements.resourceSearchClear.addEventListener('click', () => {
+    elements.resourceSearch.value = '';
+    syncResourceControls();
+    scheduleResourceSearch();
+    elements.resourceSearch.focus();
   });
-  elements.taskSearch.addEventListener('keydown', (event) => {
+  elements.resourceSearch.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
-      moveTaskSelection(event.key === 'ArrowDown' ? 1 : -1);
+      moveResourceSelection(event.key === 'ArrowDown' ? 1 : -1);
       return;
     }
     if (event.key === 'Enter') {
       event.preventDefault();
-      const task = selectedTask();
-      if (task) void addMajomTask(task);
+      const resource = selectedResource();
+      if (resource) void addResource(resource);
       return;
     }
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
-      closeTaskSearch();
+      closeResourceSearch();
     }
   });
   elements.emptyAction.addEventListener('click', () => {
@@ -789,7 +858,7 @@ export function mountApp(root, {
       loadCanvas();
       return;
     }
-    openTaskSearch();
+    openResourceSearch();
   });
 
   elements.accountButton.addEventListener('click', () => {
@@ -817,9 +886,9 @@ export function mountApp(root, {
     closeAccountMenu();
     elements.accountButton.disabled = true;
     await authSession.signOut();
-    closeTaskSearch();
+    closeResourceSearch();
     state.canvas = null;
-    state.taskResources = new Map();
+    state.resources = new Map();
     layoutUpdates.clear();
     state.error = null;
     state.user = null;
@@ -835,14 +904,14 @@ export function mountApp(root, {
       closeAccountMenu();
     }
     if (!event.target.closest('.composer')) {
-      closeTaskSearch();
+      closeResourceSearch();
     }
   });
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
-      if (state.taskSearchOpen) {
-        closeTaskSearch();
+      if (state.searchOpen) {
+        closeResourceSearch();
         return;
       }
       closeAccountMenu();

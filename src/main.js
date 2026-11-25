@@ -4,7 +4,7 @@ import { mountApp } from './app.js';
 import { createApiClient } from './data/api-client.js';
 import { createActionsApi } from './data/actions-api.js';
 import { createAuthSession } from './data/auth-session.js';
-import { createMajomTasksApi } from './data/majom-tasks-api.js';
+import { createResourceCatalogApi } from './data/resource-catalog-api.js';
 import { createThemeController } from './data/theme-controller.js';
 
 
@@ -23,12 +23,12 @@ const authSession = createAuthSession({
 });
 const apiClient = createApiClient({ apiBaseUrl, authSession });
 const api = createActionsApi({ request: apiClient.request });
-const majomTasksApi = createMajomTasksApi({ request: apiClient.request });
+const catalogApi = createResourceCatalogApi({ request: apiClient.request });
 const themeController = createThemeController();
 
 mountApp(root, {
   api,
-  majomTasksApi,
+  catalogApi,
   authSession,
   themeController,
 });

@@ -7,7 +7,7 @@ export const CARD_TYPES = Object.freeze({
 export const CARD_TYPE_CONFIG = Object.freeze({
   [CARD_TYPES.THOUGHT]: Object.freeze({ label: 'Thought', icon: 'spark' }),
   [CARD_TYPES.GOAL]: Object.freeze({ label: 'Goal', icon: 'target' }),
-  [CARD_TYPES.TASK]: Object.freeze({ label: 'Majom task', icon: 'check' }),
+  [CARD_TYPES.TASK]: Object.freeze({ label: 'Task', icon: 'check' }),
 });
 
 export function isCardType(value) {

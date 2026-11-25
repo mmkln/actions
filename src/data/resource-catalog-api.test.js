@@ -1,0 +1,59 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { createResourceCatalogApi } from './resource-catalog-api.js';
+
+test('searches the resource catalog through the Actions BFF', async () => {
+  let captured;
+  const api = createResourceCatalogApi({
+    request(path, options) {
+      captured = { path, options };
+      return Promise.resolve({ results: [] });
+    },
+  });
+
+  await api.search({ query: 'launch plan', limit: 12 });
+
+  assert.equal(
+    captured.path,
+    '/catalog/search/?limit=12&q=launch+plan',
+  );
+  assert.equal(captured.options, undefined);
+});
+
+test('resolves mixed resource references with one batch request', async () => {
+  let captured;
+  const references = [
+    { kind: 'task', resource_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+    { kind: 'thought', resource_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+  ];
+  const api = createResourceCatalogApi({
+    request(path, options) {
+      captured = { path, options };
+      return Promise.resolve({ results: [] });
+    },
+  });
+
+  await api.resolve(references);
+
+  assert.equal(captured.path, '/catalog/resolve/');
+  assert.equal(captured.options.method, 'POST');
+  assert.deepEqual(JSON.parse(captured.options.body), { references });
+});
+
+test('does not call the backend for an empty reference batch', async () => {
+  let called = false;
+  const api = createResourceCatalogApi({
+    request() {
+      called = true;
+    },
+  });
+
+  const result = await api.resolve([]);
+
+  assert.equal(called, false);
+  assert.deepEqual(result, {
+    results: [],
+    unavailable_sources: [],
+  });
+});

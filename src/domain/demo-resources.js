@@ -24,10 +24,14 @@ const DEMO_RESOURCE_BY_KEY = new Map(
   ]),
 );
 
-export function resolveResource(item) {
-  const resource = DEMO_RESOURCE_BY_KEY.get(
+export function findDemoResource(item) {
+  return DEMO_RESOURCE_BY_KEY.get(
     `${item.kind}:${item.resource_id}`,
-  );
+  ) ?? null;
+}
+
+export function resolveResource(item) {
+  const resource = findDemoResource(item);
   if (resource) {
     return resource;
   }
@@ -35,7 +39,7 @@ export function resolveResource(item) {
   return Object.freeze({
     type: item.kind,
     resourceId: item.resource_id,
-    title: `${CARD_TYPE_CONFIG[item.kind]?.label ?? 'Resource'} reference`,
+    title: `${CARD_TYPE_CONFIG[item.kind]?.label ?? 'Resource'} unavailable`,
     detail: item.resource_id.slice(0, 8),
   });
 }

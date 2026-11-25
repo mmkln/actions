@@ -15,13 +15,6 @@ export const DEMO_RESOURCES = Object.freeze([
     detail: 'Goal',
     placement: Object.freeze({ x: 0.55, y: 0.43 }),
   }),
-  Object.freeze({
-    type: CARD_TYPES.TASK,
-    resourceId: '33333333-3333-4333-8333-333333333333',
-    title: 'Описати основний сценарій користувача',
-    detail: 'Majom task',
-    placement: Object.freeze({ x: 0.36, y: 0.63 }),
-  }),
 ]);
 
 const DEMO_RESOURCE_BY_KEY = new Map(
@@ -45,14 +38,5 @@ export function resolveResource(item) {
     title: `${CARD_TYPE_CONFIG[item.kind]?.label ?? 'Resource'} reference`,
     detail: item.resource_id.slice(0, 8),
   });
-}
-
-export function demoPlacements(viewport) {
-  return DEMO_RESOURCES.map((resource) => ({
-    kind: resource.type,
-    resource_id: resource.resourceId,
-    x: Math.max(24, Math.round(viewport.width * resource.placement.x)),
-    y: Math.max(96, Math.round(viewport.height * resource.placement.y)),
-  }));
 }
 

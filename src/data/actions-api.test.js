@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { createApiClient } from './api-client.js';
 import { createActionsApi } from './actions-api.js';
 
 test('loads the authenticated canvas from the BFF', async () => {
   const requests = [];
-  const api = createActionsApi({
+  const apiClient = createApiClient({
     apiBaseUrl: 'http://actions.test/api/v1',
     authSession: {
       getAccessToken: async () => 'access-token',
@@ -19,6 +20,7 @@ test('loads the authenticated canvas from the BFF', async () => {
       });
     },
   });
+  const api = createActionsApi({ request: apiClient.request });
 
   const canvas = await api.getCanvas();
 
@@ -29,7 +31,7 @@ test('loads the authenticated canvas from the BFF', async () => {
 
 test('maps frontend layout fields to the backend contract', async () => {
   let requestBody;
-  const api = createActionsApi({
+  const apiClient = createApiClient({
     apiBaseUrl: 'http://actions.test/api/v1',
     authSession: {
       getAccessToken: async () => 'access-token',
@@ -43,6 +45,7 @@ test('maps frontend layout fields to the backend contract', async () => {
       });
     },
   });
+  const api = createActionsApi({ request: apiClient.request });
 
   await api.updateLayout({
     baseRevision: 2,

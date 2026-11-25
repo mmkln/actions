@@ -10,7 +10,7 @@ import { createCanvasMinimap } from './canvas/minimap.js';
 import { planCanvasInsertion } from './canvas/placement.js';
 import { createCanvasRenderScheduler } from './canvas/render-scheduler.js';
 import { createCanvasViewportController } from './canvas/viewport-controller.js';
-import { demoPlacements, resolveResource } from './domain/demo-resources.js';
+import { resolveResource } from './domain/demo-resources.js';
 import { cardView } from './ui/card.js';
 import { icon } from './ui/icons.js';
 
@@ -19,13 +19,9 @@ function shellView() {
     <main class="app-shell">
       <header class="topbar">
         <div class="topbar__actions">
-          <button class="icon-button" type="button" aria-label="Add sample cards" data-add-samples disabled>
-            ${icon('plus')}
-          </button>
           <button class="account-trigger" type="button" aria-label="Account" aria-expanded="false" data-account-button disabled>
             <span class="account-avatar" data-account-avatar aria-hidden="true" hidden>M</span>
             <span data-account-label>Checking…</span>
-            <span class="account-chevron" data-account-chevron hidden>${icon('chevronDown')}</span>
           </button>
           <div class="account-popover" role="dialog" aria-label="Account" data-account-menu hidden>
             <div class="account-popover__identity">
@@ -92,23 +88,30 @@ function shellView() {
         </div>
       </aside>
 
-      <div class="composer" aria-label="Card composer preview">
-        <div class="composer__type">${icon('spark')}<span>Thought</span></div>
-        <span class="composer__placeholder">Source integrations are coming next…</span>
-        <button class="composer__button" type="button" disabled>${icon('plus')}<span>Add</span></button>
+      <div class="composer" role="search" aria-label="Search and add a Majom task">
+        <div class="task-search-popover" data-task-search-popover hidden>
+          <p class="task-search-popover__status" data-task-search-status></p>
+          <div class="task-search-popover__results" id="task-search-results" role="listbox" aria-label="Majom tasks" data-task-results></div>
+        </div>
+        <div class="composer__type" aria-hidden="true">${icon('check')}</div>
+        <input class="composer__search" type="search" placeholder="Search and place an existing task…" autocomplete="off" aria-label="Search Majom tasks" aria-controls="task-search-results" aria-expanded="false" data-task-search disabled>
+        <button class="composer__button" type="button" data-add-selected-task disabled>${icon('plus')}<span>Add</span></button>
       </div>
     </main>
   `;
 }
 
-export function mountApp(root, { api, authSession, themeController }) {
+export function mountApp(root, {
+  api,
+  majomTasksApi,
+  authSession,
+  themeController,
+}) {
   root.innerHTML = shellView();
 
   const elements = {
-    addSamples: root.querySelector('[data-add-samples]'),
     accountButton: root.querySelector('[data-account-button]'),
     accountAvatar: root.querySelector('[data-account-avatar]'),
-    accountChevron: root.querySelector('[data-account-chevron]'),
     accountLabel: root.querySelector('[data-account-label]'),
     accountMenu: root.querySelector('[data-account-menu]'),
     accountMenuAvatar: root.querySelector('[data-account-menu-avatar]'),
@@ -129,6 +132,11 @@ export function mountApp(root, { api, authSession, themeController }) {
     emptyTitle: root.querySelector('[data-empty-title]'),
     emptyCopy: root.querySelector('[data-empty-copy]'),
     emptyAction: root.querySelector('[data-empty-action]'),
+    taskSearchPopover: root.querySelector('[data-task-search-popover]'),
+    taskSearch: root.querySelector('[data-task-search]'),
+    addSelectedTask: root.querySelector('[data-add-selected-task]'),
+    taskSearchStatus: root.querySelector('[data-task-search-status]'),
+    taskResults: root.querySelector('[data-task-results]'),
   };
 
   const state = {
@@ -138,10 +146,20 @@ export function mountApp(root, { api, authSession, themeController }) {
     error: null,
     sessionStatus: 'checking',
     user: null,
+    taskResources: new Map(),
+    taskResourcesLoading: false,
+    taskSearchResults: [],
+    taskSearchLoading: false,
+    taskSearchError: null,
+    selectedTaskUuid: null,
+    taskSearchOpen: false,
   };
 
   const cardElements = new Map();
   let viewportController = null;
+  let taskSearchTimer = null;
+  let taskSearchGeneration = 0;
+  let taskHydrationGeneration = 0;
 
   function itemById(itemId) {
     return (state.canvas?.items ?? []).find(({ id }) => id === itemId) ?? null;
@@ -237,13 +255,7 @@ export function mountApp(root, { api, authSession, themeController }) {
     },
     onBusyChange(busy) {
       root.toggleAttribute('data-layout-saving', busy);
-      elements.addSamples.disabled = (
-        busy
-        || state.sessionStatus !== 'authenticated'
-        || state.loading
-        || state.saving
-        || planMissingDemoInsertions().additions.length === 0
-      );
+      syncTaskControls();
     },
     async onError(error) {
       state.error = error;
@@ -251,79 +263,55 @@ export function mountApp(root, { api, authSession, themeController }) {
     },
   });
 
-  function planMissingDemoInsertions() {
-    const existing = new Set(
-      (state.canvas?.items ?? []).map(
-        (item) => `${item.kind}:${item.resource_id}`,
-      ),
+  function syncTaskControls() {
+    const disabled = (
+      state.sessionStatus !== 'authenticated'
+      || state.loading
+      || state.saving
+      || layoutUpdates.isBusy()
     );
-    const placements = demoPlacements({
-      width: window.innerWidth,
-      height: window.innerHeight,
-    });
+    elements.taskSearch.disabled = disabled;
+    const selectedTask = state.taskSearchResults.find(
+      (task) => task.uuid === state.selectedTaskUuid,
+    );
+    elements.addSelectedTask.disabled = (
+      disabled
+      || !selectedTask
+      || taskIsOnCanvas(selectedTask.uuid)
+    );
+  }
+
+  function planTaskInsertion(task) {
     const bounds = elements.canvasViewport.getBoundingClientRect();
-    const occupiedById = new Map(
-      (state.canvas?.items ?? []).map((item) => [item.id, {
+    const obstacles = (state.canvas?.items ?? []).map((item) => ({
         id: item.id,
         x: item.x,
         y: item.y,
         width: CANVAS_CARD_WIDTH,
         height: CANVAS_CARD_HEIGHT,
-      }]),
-    );
-    const existingItemIds = new Set(occupiedById.keys());
-    const additions = [];
-    const movedExistingById = new Map();
-
-    placements.filter(
-      (item) => !existing.has(`${item.kind}:${item.resource_id}`),
-    ).forEach((item) => {
-      const desired = viewportController.clientToWorld({
-        x: bounds.left + item.x,
-        y: bounds.top + item.y,
-      });
-      const candidateId = `${item.kind}:${item.resource_id}`;
-      const insertion = planCanvasInsertion({
-        candidate: {
-          id: candidateId,
-          ...desired,
-          width: CANVAS_CARD_WIDTH,
-          height: CANVAS_CARD_HEIGHT,
-        },
-        obstacles: [...occupiedById.values()],
-        gap: CANVAS_INSERTION_GAP,
-      });
-
-      insertion.moved.forEach((position) => {
-        const occupied = occupiedById.get(position.id);
-        if (!occupied) return;
-        Object.assign(occupied, position);
-        if (existingItemIds.has(position.id)) {
-          movedExistingById.set(position.id, {
-            itemId: position.id,
-            x: position.x,
-            y: position.y,
-          });
-        } else {
-          const plannedAddition = additions.find(
-            (addition) => addition.planId === position.id,
-          );
-          if (plannedAddition) Object.assign(plannedAddition, position);
-        }
-      });
-
-      occupiedById.set(candidateId, insertion.position);
-      additions.push({
-        ...item,
-        planId: candidateId,
-        x: insertion.position.x,
-        y: insertion.position.y,
-      });
+      }));
+    const desired = viewportController.clientToWorld({
+      x: bounds.left + (bounds.width / 2) - (CANVAS_CARD_WIDTH / 2),
+      y: bounds.top + (bounds.height / 2) - (CANVAS_CARD_HEIGHT / 2),
+    });
+    const insertion = planCanvasInsertion({
+      candidate: {
+        id: `task:${task.uuid}`,
+        ...desired,
+        width: CANVAS_CARD_WIDTH,
+        height: CANVAS_CARD_HEIGHT,
+      },
+      obstacles,
+      gap: CANVAS_INSERTION_GAP,
     });
 
     return {
-      additions: additions.map(({ planId: _planId, ...addition }) => addition),
-      movedExisting: [...movedExistingById.values()],
+      position: insertion.position,
+      movedExisting: insertion.moved.map((position) => ({
+        itemId: position.id,
+        x: position.x,
+        y: position.y,
+      })),
     };
   }
 
@@ -353,7 +341,6 @@ export function mountApp(root, { api, authSession, themeController }) {
     elements.accountAvatar.textContent = initial;
     elements.accountMenuAvatar.textContent = initial;
     elements.accountAvatar.hidden = !authenticated;
-    elements.accountChevron.hidden = !authenticated;
     elements.accountLabel.hidden = authenticated;
     elements.accountLabel.textContent = checking
       ? 'Checking…'
@@ -452,6 +439,242 @@ export function mountApp(root, { api, authSession, themeController }) {
     position.addEventListener('pointercancel', cancelDrag);
   }
 
+  function taskIsOnCanvas(taskUuid) {
+    return (state.canvas?.items ?? []).some(
+      (item) => item.kind === 'task' && item.resource_id === taskUuid,
+    );
+  }
+
+  function selectFirstAvailableTask() {
+    const selectedIsAvailable = state.taskSearchResults.some(
+      (task) => (
+        task.uuid === state.selectedTaskUuid
+        && !taskIsOnCanvas(task.uuid)
+      ),
+    );
+    if (!selectedIsAvailable) {
+      state.selectedTaskUuid = state.taskSearchResults.find(
+        (task) => !taskIsOnCanvas(task.uuid),
+      )?.uuid ?? null;
+    }
+  }
+
+  function renderTaskSearch() {
+    elements.taskResults.replaceChildren();
+    elements.taskSearchPopover.hidden = !state.taskSearchOpen;
+    elements.taskSearch.setAttribute(
+      'aria-expanded',
+      String(state.taskSearchOpen),
+    );
+    syncTaskControls();
+
+    if (!state.taskSearchOpen) return;
+
+    if (state.taskSearchLoading) {
+      elements.taskSearchStatus.textContent = 'Loading Majom tasks…';
+      return;
+    }
+    if (state.taskSearchError) {
+      elements.taskSearchStatus.textContent = state.taskSearchError.message;
+      return;
+    }
+    if (!state.taskSearchResults.length) {
+      elements.taskSearchStatus.textContent = 'No matching tasks.';
+      return;
+    }
+
+    selectFirstAvailableTask();
+    elements.taskSearchStatus.textContent = '';
+    const fragment = document.createDocumentFragment();
+    state.taskSearchResults.forEach((task) => {
+      const added = taskIsOnCanvas(task.uuid);
+      const selected = task.uuid === state.selectedTaskUuid;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'task-search-popover__result';
+      button.setAttribute('role', 'option');
+      button.setAttribute('aria-selected', String(selected));
+      button.classList.toggle('is-selected', selected);
+      button.disabled = added || state.saving;
+
+      const copy = document.createElement('span');
+      copy.className = 'task-search-popover__result-copy';
+      const title = document.createElement('strong');
+      title.textContent = task.title;
+      const meta = document.createElement('small');
+      meta.textContent = task.is_completed
+        ? 'Completed'
+        : task.status;
+      copy.append(title, meta);
+
+      const action = document.createElement('span');
+      action.className = 'task-search-popover__result-action';
+      action.textContent = added ? 'Added' : 'Add';
+
+      button.append(copy, action);
+      button.addEventListener('pointermove', () => {
+        if (added || state.selectedTaskUuid === task.uuid) return;
+        state.selectedTaskUuid = task.uuid;
+        renderTaskSearch();
+      });
+      button.addEventListener('click', () => {
+        state.selectedTaskUuid = task.uuid;
+        void addMajomTask(task);
+      });
+      fragment.append(button);
+    });
+    elements.taskResults.append(fragment);
+    syncTaskControls();
+  }
+
+  async function searchMajomTasks() {
+    const generation = ++taskSearchGeneration;
+    state.taskSearchLoading = true;
+    state.taskSearchError = null;
+    renderTaskSearch();
+    try {
+      const payload = await majomTasksApi.search({
+        search: elements.taskSearch.value.trim(),
+      });
+      if (generation !== taskSearchGeneration) return;
+      state.taskSearchResults = payload.results ?? [];
+      selectFirstAvailableTask();
+    } catch (error) {
+      if (generation !== taskSearchGeneration) return;
+      state.taskSearchResults = [];
+      state.taskSearchError = error;
+    } finally {
+      if (generation === taskSearchGeneration) {
+        state.taskSearchLoading = false;
+        renderTaskSearch();
+      }
+    }
+  }
+
+  function scheduleTaskSearch() {
+    window.clearTimeout(taskSearchTimer);
+    state.taskSearchOpen = true;
+    state.selectedTaskUuid = null;
+    renderTaskSearch();
+    taskSearchTimer = window.setTimeout(searchMajomTasks, 180);
+  }
+
+  function openTaskSearch() {
+    if (state.sessionStatus !== 'authenticated') return;
+    closeAccountMenu();
+    state.taskSearchOpen = true;
+    state.taskSearchError = null;
+    renderTaskSearch();
+    if (!state.taskSearchLoading) void searchMajomTasks();
+    window.requestAnimationFrame(() => elements.taskSearch.focus());
+  }
+
+  function closeTaskSearch() {
+    state.taskSearchOpen = false;
+    state.taskSearchLoading = false;
+    taskSearchGeneration += 1;
+    window.clearTimeout(taskSearchTimer);
+    renderTaskSearch();
+  }
+
+  function moveTaskSelection(direction) {
+    const available = state.taskSearchResults.filter(
+      (task) => !taskIsOnCanvas(task.uuid),
+    );
+    if (!available.length) return;
+    const currentIndex = available.findIndex(
+      (task) => task.uuid === state.selectedTaskUuid,
+    );
+    const nextIndex = currentIndex < 0
+      ? 0
+      : (currentIndex + direction + available.length) % available.length;
+    state.selectedTaskUuid = available[nextIndex].uuid;
+    renderTaskSearch();
+  }
+
+  function selectedTask() {
+    return state.taskSearchResults.find(
+      (task) => task.uuid === state.selectedTaskUuid,
+    ) ?? null;
+  }
+
+  async function addMajomTask(task) {
+    if (state.saving || taskIsOnCanvas(task.uuid)) return;
+
+    state.saving = true;
+    state.taskSearchError = null;
+    root.dataset.saving = 'true';
+    syncTaskControls();
+    renderTaskSearch();
+    try {
+      const insertion = planTaskInsertion(task);
+      if (insertion.movedExisting.length > 0) {
+        const layoutResult = await api.updateLayout({
+          baseRevision: state.canvas.revision,
+          changes: insertion.movedExisting,
+        });
+        state.canvas.revision = layoutResult.revision;
+        insertion.movedExisting.forEach((change) => {
+          const item = itemById(change.itemId);
+          if (item) Object.assign(item, { x: change.x, y: change.y });
+        });
+      }
+
+      const result = await api.addItem({
+        kind: 'task',
+        resource_id: task.uuid,
+        x: insertion.position.x,
+        y: insertion.position.y,
+      });
+      state.canvas.revision = result.revision;
+      state.canvas.items.push(result.item);
+      state.taskResources.set(task.uuid, task);
+      renderCanvas();
+      elements.taskSearch.value = '';
+      state.taskSearchResults = [];
+      state.selectedTaskUuid = null;
+      closeTaskSearch();
+    } catch (error) {
+      state.taskSearchError = error;
+    } finally {
+      state.saving = false;
+      delete root.dataset.saving;
+      syncTaskControls();
+      renderTaskSearch();
+    }
+  }
+
+  async function loadTaskResources() {
+    const generation = ++taskHydrationGeneration;
+    const taskIds = (state.canvas?.items ?? [])
+      .filter((item) => item.kind === 'task')
+      .map((item) => item.resource_id);
+
+    state.taskResources = new Map();
+    if (!taskIds.length) {
+      state.taskResourcesLoading = false;
+      return;
+    }
+
+    state.taskResourcesLoading = true;
+    renderCanvas();
+    try {
+      const payload = await majomTasksApi.resolve(taskIds);
+      if (generation !== taskHydrationGeneration) return;
+      state.taskResources = new Map(
+        (payload.results ?? []).map((task) => [task.uuid, task]),
+      );
+    } catch {
+      if (generation !== taskHydrationGeneration) return;
+      state.taskResources = new Map();
+    } finally {
+      if (generation === taskHydrationGeneration) {
+        state.taskResourcesLoading = false;
+        renderCanvas();
+      }
+    }
+  }
+
   function renderCanvas() {
     const items = state.canvas?.items ?? [];
     const authenticated = state.sessionStatus === 'authenticated';
@@ -460,14 +683,21 @@ export function mountApp(root, { api, authSession, themeController }) {
     cardElements.clear();
 
     for (const item of items) {
-      const resource = resolveResource(item);
+      const resource = item.kind === 'task'
+        ? state.taskResources.get(item.resource_id)
+        : resolveResource(item);
+      const title = resource?.title ?? (
+        state.taskResourcesLoading
+          ? 'Loading task…'
+          : 'Task unavailable'
+      );
       const position = document.createElement('div');
       position.className = 'canvas-card-position';
       position.dataset.itemId = item.id;
       position.style.zIndex = '2';
       position.innerHTML = cardView({
         type: item.kind,
-        title: resource.title,
+        title,
       });
       position.addEventListener('pointerdown', (event) => {
         beginDrag(event, item, position);
@@ -477,27 +707,18 @@ export function mountApp(root, { api, authSession, themeController }) {
     }
     renderScheduler.request({ allItems: true, minimap: true });
 
-    const insertionPlan = planMissingDemoInsertions();
-    elements.addSamples.disabled = (
-      !authenticated
-      || state.loading
-      || state.saving
-      || layoutUpdates.isBusy()
-      || insertionPlan.additions.length === 0
-    );
+    syncTaskControls();
 
     elements.emptyState.hidden = items.length > 0 && !state.error;
+    elements.emptyAction.hidden = true;
+    delete elements.emptyAction.dataset.action;
     if (checking) {
       elements.emptyTitle.textContent = 'Opening your Actions canvas';
       elements.emptyCopy.textContent = 'Checking your Majom ID session…';
-      elements.emptyAction.hidden = true;
     } else if (!authenticated) {
       elements.emptyTitle.textContent = 'Sign in to open Actions';
       elements.emptyCopy.textContent = state.error?.message
         ?? 'Your canvas and its layout are tied to your Majom ID.';
-      elements.emptyAction.hidden = false;
-      elements.emptyAction.textContent = 'Continue with Majom ID';
-      elements.emptyAction.dataset.action = 'sign-in';
     } else if (state.error) {
       elements.emptyAction.hidden = false;
       elements.emptyTitle.textContent = 'Couldn’t reach Actions backend';
@@ -507,9 +728,9 @@ export function mountApp(root, { api, authSession, themeController }) {
     } else {
       elements.emptyAction.hidden = false;
       elements.emptyTitle.textContent = 'Your Actions canvas is empty';
-      elements.emptyCopy.textContent = 'Add the local sample references to verify backend persistence.';
-      elements.emptyAction.textContent = 'Add sample cards';
-      elements.emptyAction.dataset.action = 'samples';
+      elements.emptyCopy.textContent = 'Add an existing Majom task to begin.';
+      elements.emptyAction.textContent = 'Add Majom task';
+      elements.emptyAction.dataset.action = 'task';
     }
   }
 
@@ -521,6 +742,8 @@ export function mountApp(root, { api, authSession, themeController }) {
     state.error = null;
     try {
       state.canvas = await api.getCanvas();
+      renderCanvas();
+      void loadTaskResources();
     } catch (error) {
       state.error = error;
     } finally {
@@ -529,54 +752,42 @@ export function mountApp(root, { api, authSession, themeController }) {
     }
   }
 
-  async function addSamples() {
-    if (
-      state.sessionStatus !== 'authenticated'
-      || state.saving
-      || state.loading
-      || layoutUpdates.isBusy()
-    ) {
+  elements.taskSearch.addEventListener('focus', () => {
+    if (!state.taskSearchOpen) openTaskSearch();
+  });
+  elements.taskSearch.addEventListener('input', scheduleTaskSearch);
+  elements.taskSearch.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      moveTaskSelection(event.key === 'ArrowDown' ? 1 : -1);
       return;
     }
-
-    state.saving = true;
-    root.dataset.saving = 'true';
-    elements.addSamples.disabled = true;
-    elements.emptyAction.disabled = true;
-    try {
-      const insertionPlan = planMissingDemoInsertions();
-      if (insertionPlan.movedExisting.length > 0) {
-        const result = await api.updateLayout({
-          baseRevision: state.canvas.revision,
-          changes: insertionPlan.movedExisting,
-        });
-        state.canvas.revision = result.revision;
-      }
-      for (const placement of insertionPlan.additions) {
-        await api.addItem(placement);
-      }
-      await loadCanvas();
-    } catch (error) {
-      state.error = error;
-      renderCanvas();
-    } finally {
-      state.saving = false;
-      delete root.dataset.saving;
-      elements.emptyAction.disabled = false;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const task = selectedTask();
+      if (task) void addMajomTask(task);
+      return;
     }
-  }
-
-  elements.addSamples.addEventListener('click', addSamples);
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      closeTaskSearch();
+    }
+  });
+  elements.addSelectedTask.addEventListener('click', () => {
+    const task = selectedTask();
+    if (task) {
+      void addMajomTask(task);
+    } else {
+      openTaskSearch();
+    }
+  });
   elements.emptyAction.addEventListener('click', () => {
-    if (elements.emptyAction.dataset.action === 'sign-in') {
-      authSession.startLogin();
-      return;
-    }
     if (elements.emptyAction.dataset.action === 'retry') {
       loadCanvas();
       return;
     }
-    addSamples();
+    openTaskSearch();
   });
 
   elements.accountButton.addEventListener('click', () => {
@@ -604,7 +815,9 @@ export function mountApp(root, { api, authSession, themeController }) {
     closeAccountMenu();
     elements.accountButton.disabled = true;
     await authSession.signOut();
+    closeTaskSearch();
     state.canvas = null;
+    state.taskResources = new Map();
     layoutUpdates.clear();
     state.error = null;
     state.user = null;
@@ -619,10 +832,17 @@ export function mountApp(root, { api, authSession, themeController }) {
     if (!event.target.closest('.topbar__actions')) {
       closeAccountMenu();
     }
+    if (!event.target.closest('.composer')) {
+      closeTaskSearch();
+    }
   });
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      if (state.taskSearchOpen) {
+        closeTaskSearch();
+        return;
+      }
       closeAccountMenu();
       elements.accountButton.focus();
     }

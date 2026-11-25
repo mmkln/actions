@@ -1,8 +1,10 @@
 import './styles.css';
 
 import { mountApp } from './app.js';
+import { createApiClient } from './data/api-client.js';
 import { createActionsApi } from './data/actions-api.js';
 import { createAuthSession } from './data/auth-session.js';
+import { createMajomTasksApi } from './data/majom-tasks-api.js';
 import { createThemeController } from './data/theme-controller.js';
 
 
@@ -19,8 +21,15 @@ const authSession = createAuthSession({
   apiBaseUrl,
   authMode: import.meta.env.VITE_ACTIONS_AUTH_MODE ?? 'sso',
 });
-const api = createActionsApi({ apiBaseUrl, authSession });
+const apiClient = createApiClient({ apiBaseUrl, authSession });
+const api = createActionsApi({ request: apiClient.request });
+const majomTasksApi = createMajomTasksApi({ request: apiClient.request });
 const themeController = createThemeController();
 
-mountApp(root, { api, authSession, themeController });
+mountApp(root, {
+  api,
+  majomTasksApi,
+  authSession,
+  themeController,
+});
 

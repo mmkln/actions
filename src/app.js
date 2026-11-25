@@ -1,5 +1,12 @@
 import { loadCanvasCamera, saveCanvasCamera } from './canvas/camera-store.js';
 import { dragPosition } from './canvas/coordinate-space.js';
+import { buildRenderableConnections } from './canvas/connection-render-state.js';
+import { createConnectionRenderer } from './canvas/connection-renderer.js';
+import {
+  getOutgoingTargetIds,
+  MAX_CONNECTIONS_PER_ITEM,
+  normalizeConnection,
+} from './canvas/connections.js';
 import {
   CANVAS_CARD_HEIGHT,
   CANVAS_CARD_WIDTH,
@@ -15,6 +22,10 @@ import {
   resolveResource,
 } from './domain/demo-resources.js';
 import { cardView } from './ui/card.js';
+import {
+  getConnectionActionState,
+  renderConnectionActionButton,
+} from './ui/connection-action-button.js';
 import { icon } from './ui/icons.js';
 
 function shellView() {
@@ -60,6 +71,7 @@ function shellView() {
       <section class="canvas" aria-label="Main canvas" data-canvas>
         <div class="board-viewport" data-canvas-viewport>
           <div class="canvas-world" data-canvas-world>
+            <svg class="connection-layer" data-connection-layer aria-hidden="true"></svg>
             <div class="canvas__items" data-canvas-items></div>
           </div>
         </div>
@@ -90,6 +102,12 @@ function shellView() {
           <button type="button" data-zoom-in aria-label="Zoom in" title="Zoom in">+</button>
         </div>
       </aside>
+
+      <div class="connection-toolbar" role="toolbar" aria-label="Edit connections" data-connection-toolbar hidden>
+        <button class="connection-toolbar__cancel" type="button" data-connection-cancel>Cancel</button>
+        <span class="connection-toolbar__count" data-connection-count>0 selected</span>
+        <button class="connection-toolbar__done" type="button" data-connection-done>Done</button>
+      </div>
 
       <div class="composer" role="search" aria-label="Search and add resources">
         <div class="resource-search-popover" data-resource-search-popover hidden>
@@ -125,6 +143,7 @@ export function mountApp(root, {
     themeOptions: [...root.querySelectorAll('[data-theme-value]')],
     canvasViewport: root.querySelector('[data-canvas-viewport]'),
     canvasWorld: root.querySelector('[data-canvas-world]'),
+    connectionLayer: root.querySelector('[data-connection-layer]'),
     canvasItems: root.querySelector('[data-canvas-items]'),
     navigationHud: root.querySelector('[data-navigation-hud]'),
     minimap: root.querySelector('[data-canvas-minimap]'),
@@ -140,6 +159,10 @@ export function mountApp(root, {
     resourceSearchClear: root.querySelector('[data-resource-search-clear]'),
     resourceSearchStatus: root.querySelector('[data-resource-search-status]'),
     resourceResults: root.querySelector('[data-resource-results]'),
+    connectionToolbar: root.querySelector('[data-connection-toolbar]'),
+    connectionCancel: root.querySelector('[data-connection-cancel]'),
+    connectionCount: root.querySelector('[data-connection-count]'),
+    connectionDone: root.querySelector('[data-connection-done]'),
   };
 
   const state = {
@@ -157,6 +180,10 @@ export function mountApp(root, {
     unavailableSources: [],
     selectedResourceKey: null,
     searchOpen: false,
+    connections: [],
+    connectionEditor: null,
+    connectionSaving: false,
+    connectionError: null,
   };
 
   const cardElements = new Map();
@@ -194,6 +221,21 @@ export function mountApp(root, {
     element.style.zIndex = String(topCardZIndex() + 1);
   }
 
+  const connectionRenderer = createConnectionRenderer({
+    layer: elements.connectionLayer,
+    getCardById(itemId) {
+      const item = itemById(itemId);
+      const card = cardElements.get(itemId)?.querySelector('.canvas-card');
+      if (!item || !card) return null;
+      return {
+        x: item.x,
+        y: item.y,
+        width: card.offsetWidth || CANVAS_CARD_WIDTH,
+        height: card.offsetHeight || CANVAS_CARD_HEIGHT,
+      };
+    },
+  });
+
   function renderMinimap() {
     if (elements.navigationHud.hidden || !viewportController) return;
     const bounds = elements.canvasViewport.getBoundingClientRect();
@@ -210,17 +252,21 @@ export function mountApp(root, {
           height: card?.offsetHeight || 96,
         };
       }),
+      connections: state.connections,
     });
   }
 
   const renderScheduler = createCanvasRenderScheduler({
     requestFrame: window.requestAnimationFrame.bind(window),
     cancelFrame: window.cancelAnimationFrame.bind(window),
-    onFlush({ allItems, itemIds, minimap }) {
+    onFlush({ allItems, itemIds, minimap, connections }) {
       if (allItems) {
         (state.canvas?.items ?? []).forEach(({ id }) => renderItemPosition(id));
       } else {
         itemIds.forEach(renderItemPosition);
+      }
+      if (connections || allItems || itemIds.size > 0) {
+        connectionRenderer.update();
       }
       if (minimap) renderMinimap();
     },
@@ -263,7 +309,7 @@ export function mountApp(root, {
     },
     onBusyChange(busy) {
       root.toggleAttribute('data-layout-saving', busy);
-      syncResourceControls();
+      renderConnectionUi();
     },
     async onError(error) {
       state.error = error;
@@ -276,10 +322,150 @@ export function mountApp(root, {
       state.sessionStatus !== 'authenticated'
       || state.loading
       || state.saving
+      || state.connectionSaving
+      || Boolean(state.connectionEditor)
       || layoutUpdates.isBusy()
     );
     elements.resourceSearch.disabled = disabled;
     elements.resourceSearchClear.hidden = !elements.resourceSearch.value;
+  }
+
+  function rebuildConnectionLayer() {
+    const mountedItemIds = new Set((state.canvas?.items ?? []).map(({ id }) => id));
+    const renderable = buildRenderableConnections(
+      state.connections,
+      state.connectionEditor,
+    ).filter(({ sourceId, targetId }) => (
+      mountedItemIds.has(sourceId) && mountedItemIds.has(targetId)
+    ));
+    connectionRenderer.setConnections(renderable);
+    connectionRenderer.update();
+    renderScheduler.request({ minimap: true });
+  }
+
+  function renderConnectionUi() {
+    const editor = state.connectionEditor;
+    root.classList.toggle('is-connection-editing', Boolean(editor));
+    elements.connectionToolbar.hidden = !editor;
+
+    if (editor) {
+      const selectedCount = editor.selectedTargetIds.size;
+      elements.connectionCount.textContent = state.connectionError
+        ? 'Couldn’t save. Try again.'
+        : `${selectedCount} selected`;
+      elements.connectionDone.disabled = state.connectionSaving;
+      elements.connectionCancel.disabled = state.connectionSaving;
+      elements.connectionDone.textContent = state.connectionSaving ? 'Saving…' : 'Done';
+    }
+
+    cardElements.forEach((position, itemId) => {
+      const button = position.querySelector('.connection-button');
+      if (!button) return;
+      const isSource = itemId === editor?.sourceId;
+      const isSelected = editor?.selectedTargetIds.has(itemId) === true;
+      position.classList.toggle('is-connection-source', isSource);
+      position.classList.toggle('is-connection-selected', isSelected);
+      button.disabled = state.connectionSaving || state.saving || layoutUpdates.isBusy();
+
+      let title = 'Edit connections';
+      if (isSource) title = 'Cancel connection editing';
+      else if (editor && isSelected) title = 'Remove connection';
+      else if (editor) title = 'Add connection';
+
+      renderConnectionActionButton(button, {
+        state: getConnectionActionState({
+          editing: Boolean(editor),
+          source: isSource,
+          selected: isSelected,
+        }),
+        title,
+      });
+    });
+
+    syncResourceControls();
+    rebuildConnectionLayer();
+  }
+
+  function openConnectionEditor(item) {
+    if (
+      state.connectionEditor
+      || state.connectionSaving
+      || state.saving
+      || layoutUpdates.isBusy()
+    ) return;
+
+    closeAccountMenu();
+    closeResourceSearch();
+    state.connectionError = null;
+    state.connectionEditor = {
+      sourceId: item.id,
+      selectedTargetIds: new Set(
+        getOutgoingTargetIds(state.connections, item.id),
+      ),
+    };
+    renderConnectionUi();
+  }
+
+  function cancelConnectionEditor() {
+    if (!state.connectionEditor || state.connectionSaving) return;
+    state.connectionEditor = null;
+    state.connectionError = null;
+    renderConnectionUi();
+  }
+
+  function toggleConnectionCandidate(item) {
+    const editor = state.connectionEditor;
+    if (!editor || item.id === editor.sourceId || state.connectionSaving) return;
+    state.connectionError = null;
+    if (editor.selectedTargetIds.has(item.id)) {
+      editor.selectedTargetIds.delete(item.id);
+    } else if (editor.selectedTargetIds.size < MAX_CONNECTIONS_PER_ITEM) {
+      editor.selectedTargetIds.add(item.id);
+    }
+    renderConnectionUi();
+  }
+
+  function handleConnectionButton(item) {
+    if (!state.connectionEditor) {
+      openConnectionEditor(item);
+      return;
+    }
+    if (state.connectionEditor.sourceId === item.id) {
+      cancelConnectionEditor();
+      return;
+    }
+    toggleConnectionCandidate(item);
+  }
+
+  async function commitConnectionEditor() {
+    const editor = state.connectionEditor;
+    if (!editor || state.connectionSaving || !state.canvas) return;
+
+    state.connectionSaving = true;
+    state.connectionError = null;
+    renderConnectionUi();
+    try {
+      const result = await api.replaceConnections({
+        sourceItemId: editor.sourceId,
+        baseRevision: state.canvas.revision,
+        targetItemIds: [...editor.selectedTargetIds],
+      });
+      state.canvas.revision = result.revision;
+      state.connections = [
+        ...state.connections.filter(({ sourceId }) => sourceId !== editor.sourceId),
+        ...(result.connections ?? []).map(normalizeConnection),
+      ];
+      state.connectionEditor = null;
+    } catch (error) {
+      state.connectionError = error;
+      if (error.status === 409) {
+        state.connectionEditor = null;
+        await loadCanvas();
+      }
+    } finally {
+      state.connectionSaving = false;
+      renderConnectionUi();
+    }
   }
 
   function planResourceInsertion(resource) {
@@ -364,7 +550,7 @@ export function mountApp(root, {
   }
 
   function beginDrag(event, item, position) {
-    if (event.button !== 0 || state.saving) return;
+    if (event.button !== 0 || state.saving || state.connectionEditor) return;
     if (event.target.closest('button, input, textarea, select, a')) return;
 
     event.preventDefault();
@@ -402,7 +588,11 @@ export function mountApp(root, {
       );
       item.x = nextPosition.x;
       item.y = nextPosition.y;
-      renderScheduler.request({ items: [item.id], minimap: true });
+      renderScheduler.request({
+        items: [item.id],
+        connections: true,
+        minimap: true,
+      });
     }
 
     function finishDrag(finishEvent) {
@@ -416,7 +606,11 @@ export function mountApp(root, {
 
       item.x = Math.round(nextPosition.x);
       item.y = Math.round(nextPosition.y);
-      renderScheduler.request({ items: [item.id], minimap: true });
+      renderScheduler.request({
+        items: [item.id],
+        connections: true,
+        minimap: true,
+      });
       layoutUpdates.enqueue({
         itemId: item.id,
         x: item.x,
@@ -432,7 +626,11 @@ export function mountApp(root, {
       position.removeEventListener('pointerup', finishDrag);
       position.removeEventListener('pointercancel', cancelDrag);
       position.classList.remove('is-dragging');
-      renderScheduler.request({ items: [item.id], minimap: true });
+      renderScheduler.request({
+        items: [item.id],
+        connections: true,
+        minimap: true,
+      });
     }
 
     position.addEventListener('pointermove', onPointerMove);
@@ -772,15 +970,23 @@ export function mountApp(root, {
         type: item.kind,
         title,
       });
+      const connectionButton = position.querySelector('.connection-button');
+      connectionButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        handleConnectionButton(item);
+      });
       position.addEventListener('pointerdown', (event) => {
         beginDrag(event, item, position);
       });
       cardElements.set(item.id, position);
       elements.canvasItems.append(position);
     }
-    renderScheduler.request({ allItems: true, minimap: true });
-
-    syncResourceControls();
+    renderConnectionUi();
+    renderScheduler.request({
+      allItems: true,
+      connections: true,
+      minimap: true,
+    });
 
     elements.emptyState.hidden = items.length > 0 && !state.error;
     elements.emptyAction.hidden = true;
@@ -813,8 +1019,11 @@ export function mountApp(root, {
     }
     state.loading = true;
     state.error = null;
+    state.connectionEditor = null;
+    state.connectionError = null;
     try {
       state.canvas = await api.getCanvas();
+      state.connections = (state.canvas.connections ?? []).map(normalizeConnection);
       renderCanvas();
       void loadResources();
     } catch (error) {
@@ -888,6 +1097,9 @@ export function mountApp(root, {
     await authSession.signOut();
     closeResourceSearch();
     state.canvas = null;
+    state.connections = [];
+    state.connectionEditor = null;
+    state.connectionError = null;
     state.resources = new Map();
     layoutUpdates.clear();
     state.error = null;
@@ -909,6 +1121,20 @@ export function mountApp(root, {
   });
 
   document.addEventListener('keydown', (event) => {
+    if (state.connectionEditor && event.key === 'Escape') {
+      event.preventDefault();
+      cancelConnectionEditor();
+      return;
+    }
+    if (
+      state.connectionEditor
+      && event.key === 'Enter'
+      && !event.target.closest('button, input, textarea, select, a')
+    ) {
+      event.preventDefault();
+      void commitConnectionEditor();
+      return;
+    }
     if (event.key === 'Escape') {
       if (state.searchOpen) {
         closeResourceSearch();
@@ -917,6 +1143,11 @@ export function mountApp(root, {
       closeAccountMenu();
       elements.accountButton.focus();
     }
+  });
+
+  elements.connectionCancel.addEventListener('click', cancelConnectionEditor);
+  elements.connectionDone.addEventListener('click', () => {
+    void commitConnectionEditor();
   });
 
   themeController.subscribe(renderAppearance);

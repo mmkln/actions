@@ -100,6 +100,29 @@ export function createCanvasMinimap({ canvas, onNavigate }) {
     });
   }
 
+  function drawConnections(activeProjection) {
+    const cardsById = new Map(snapshot.cards.map((card) => [card.id, card]));
+    context.strokeStyle = cssColor('--minimap-connection', 'rgba(112, 85, 197, .34)');
+    context.lineWidth = 1;
+    context.beginPath();
+    (snapshot.connections ?? []).forEach((connection) => {
+      const source = cardsById.get(connection.sourceId);
+      const target = cardsById.get(connection.targetId);
+      if (!source || !target) return;
+      const start = activeProjection.worldToMap(
+        source.x + source.width / 2,
+        source.y + source.height / 2,
+      );
+      const end = activeProjection.worldToMap(
+        target.x + target.width / 2,
+        target.y + target.height / 2,
+      );
+      context.moveTo(start.x, start.y);
+      context.lineTo(end.x, end.y);
+    });
+    context.stroke();
+  }
+
   function drawViewport(activeProjection) {
     const viewport = getCanvasViewport(snapshot.camera, snapshot.viewport);
     const point = activeProjection.worldToMap(viewport.x, viewport.y);
@@ -124,6 +147,7 @@ export function createCanvasMinimap({ canvas, onNavigate }) {
     );
     projection = activeProjection;
     context.clearRect(0, 0, size.width, size.height);
+    drawConnections(activeProjection);
     drawCards(activeProjection);
     drawViewport(activeProjection);
   }

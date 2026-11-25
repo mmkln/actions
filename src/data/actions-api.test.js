@@ -58,3 +58,30 @@ test('maps frontend layout fields to the backend contract', async () => {
   });
 });
 
+test('replaces one item’s connections with the backend revision contract', async () => {
+  let requestUrl;
+  let requestMethod;
+  let requestBody;
+  const api = createActionsApi({
+    request: async (url, options) => {
+      requestUrl = url;
+      requestMethod = options.method;
+      requestBody = JSON.parse(options.body);
+      return { revision: 7, connections: [] };
+    },
+  });
+
+  await api.replaceConnections({
+    sourceItemId: 'source-id',
+    baseRevision: 6,
+    targetItemIds: ['target-one', 'target-two'],
+  });
+
+  assert.equal(requestUrl, '/canvas/items/source-id/connections/');
+  assert.equal(requestMethod, 'PUT');
+  assert.deepEqual(requestBody, {
+    base_revision: 6,
+    target_item_ids: ['target-one', 'target-two'],
+  });
+});
+

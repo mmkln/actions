@@ -24,6 +24,7 @@ export function cardView({ type, title }) {
         <p>${escapeHtml(title)}</p>
       </div>
     </article>
+    <button class="connection-button connection-action-button" type="button"></button>
   `;
 }
 

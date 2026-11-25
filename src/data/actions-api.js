@@ -25,6 +25,16 @@ export function createActionsApi({ request }) {
       });
     },
 
+    replaceConnections({ sourceItemId, baseRevision, targetItemIds }) {
+      return request(`/canvas/items/${sourceItemId}/connections/`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          base_revision: baseRevision,
+          target_item_ids: targetItemIds,
+        }),
+      });
+    },
+
     removeItem(itemId) {
       return request(`/canvas/items/${itemId}/`, { method: 'DELETE' });
     },

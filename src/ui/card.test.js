@@ -15,5 +15,6 @@ test('renders the card kind through its icon without a duplicate text label', ()
   assert.doesNotMatch(markup, />Goal</i);
   assert.doesNotMatch(markup, /canvas-card__type/);
   assert.doesNotMatch(markup, /canvas-card__detail/);
+  assert.match(markup, /connection-action-button/);
 });
 

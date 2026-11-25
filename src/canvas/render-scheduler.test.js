@@ -4,7 +4,7 @@ import test from 'node:test';
 import { createCanvasRenderScheduler } from './render-scheduler.js';
 
 
-test('coalesces item and minimap invalidations into one frame', () => {
+test('coalesces item, connection, and minimap invalidations into one frame', () => {
   let callback = null;
   const updates = [];
   const scheduler = createCanvasRenderScheduler({
@@ -19,10 +19,11 @@ test('coalesces item and minimap invalidations into one frame', () => {
   });
 
   scheduler.request({ items: ['one'] });
-  scheduler.request({ items: ['two', 'one'], minimap: true });
+  scheduler.request({ items: ['two', 'one'], minimap: true, connections: true });
   callback();
 
   assert.equal(updates.length, 1);
   assert.deepEqual([...updates[0].itemIds], ['one', 'two']);
   assert.equal(updates[0].minimap, true);
+  assert.equal(updates[0].connections, true);
 });

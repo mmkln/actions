@@ -30,7 +30,7 @@ explicitly wanted.
 
 - `src/domain` — shared card types and future domain rules;
 - `src/auth` — framework-free parsing of Majom ID callback/session payloads;
-- `src/canvas` — world coordinates, camera, viewport gestures, minimap, and frame scheduling;
+- `src/canvas` — world coordinates, camera, collision-free insertion, serialized layout persistence, minimap, and frame scheduling;
 - `src/data` — Actions API and authenticated session boundaries;
 - `src/ui` — reusable visual components;
 - `src/app.js` — application state and orchestration of rendering and persistence;

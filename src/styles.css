@@ -442,8 +442,11 @@ button:disabled {
 
 .canvas-card-position {
   position: absolute;
+  z-index: 2;
   top: 0;
   left: 0;
+  width: fit-content;
+  max-width: min(280px, calc(100vw - 30px));
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -451,15 +454,17 @@ button:disabled {
 }
 
 .canvas-card-position.is-dragging {
-  z-index: 5;
+  z-index: 100 !important;
   cursor: grabbing;
 }
 
 .canvas-card {
   display: flex;
   align-items: flex-start;
-  width: min(280px, calc(100vw - 30px));
-  max-height: 108px;
+  width: auto;
+  max-width: min(280px, calc(100vw - 30px));
+  max-height: 96px;
+  overflow: hidden;
   gap: 12px;
   padding: 12px 20px 12px 8px;
   border: 1px solid var(--border-subtle);
@@ -531,8 +536,7 @@ button:disabled {
 }
 
 .canvas-card__detail {
-  margin-top: 7px;
-  text-transform: none;
+  display: none;
 }
 
 .canvas__empty {

@@ -1,6 +1,13 @@
 import { loadCanvasCamera, saveCanvasCamera } from './canvas/camera-store.js';
 import { dragPosition } from './canvas/coordinate-space.js';
+import {
+  CANVAS_CARD_HEIGHT,
+  CANVAS_CARD_WIDTH,
+  CANVAS_INSERTION_GAP,
+} from './canvas/geometry.js';
+import { createLayoutUpdateQueue } from './canvas/layout-update-queue.js';
 import { createCanvasMinimap } from './canvas/minimap.js';
+import { planCanvasInsertion } from './canvas/placement.js';
 import { createCanvasRenderScheduler } from './canvas/render-scheduler.js';
 import { createCanvasViewportController } from './canvas/viewport-controller.js';
 import { demoPlacements, resolveResource } from './domain/demo-resources.js';
@@ -147,6 +154,20 @@ export function mountApp(root, { api, authSession, themeController }) {
     element.style.transform = `translate3d(${item.x}px, ${item.y}px, 0)`;
   }
 
+  function topCardZIndex() {
+    return [...cardElements.values()].reduce(
+      (maximum, element) => Math.max(
+        maximum,
+        Number(element.style.zIndex) || 2,
+      ),
+      2,
+    );
+  }
+
+  function bringCardToFront(element) {
+    element.style.zIndex = String(topCardZIndex() + 1);
+  }
+
   function renderMinimap() {
     if (elements.navigationHud.hidden || !viewportController) return;
     const bounds = elements.canvasViewport.getBoundingClientRect();
@@ -205,7 +226,32 @@ export function mountApp(root, { api, authSession, themeController }) {
     },
   });
 
-  function missingDemoPlacements() {
+  const layoutUpdates = createLayoutUpdateQueue({
+    async persist(changes) {
+      if (!state.canvas) return;
+      const result = await api.updateLayout({
+        baseRevision: state.canvas.revision,
+        changes,
+      });
+      if (state.canvas) state.canvas.revision = result.revision;
+    },
+    onBusyChange(busy) {
+      root.toggleAttribute('data-layout-saving', busy);
+      elements.addSamples.disabled = (
+        busy
+        || state.sessionStatus !== 'authenticated'
+        || state.loading
+        || state.saving
+        || planMissingDemoInsertions().additions.length === 0
+      );
+    },
+    async onError(error) {
+      state.error = error;
+      await loadCanvas();
+    },
+  });
+
+  function planMissingDemoInsertions() {
     const existing = new Set(
       (state.canvas?.items ?? []).map(
         (item) => `${item.kind}:${item.resource_id}`,
@@ -216,15 +262,69 @@ export function mountApp(root, { api, authSession, themeController }) {
       height: window.innerHeight,
     });
     const bounds = elements.canvasViewport.getBoundingClientRect();
-    return placements.filter(
+    const occupiedById = new Map(
+      (state.canvas?.items ?? []).map((item) => [item.id, {
+        id: item.id,
+        x: item.x,
+        y: item.y,
+        width: CANVAS_CARD_WIDTH,
+        height: CANVAS_CARD_HEIGHT,
+      }]),
+    );
+    const existingItemIds = new Set(occupiedById.keys());
+    const additions = [];
+    const movedExistingById = new Map();
+
+    placements.filter(
       (item) => !existing.has(`${item.kind}:${item.resource_id}`),
-    ).map((item) => ({
-      ...item,
-      ...viewportController.clientToWorld({
+    ).forEach((item) => {
+      const desired = viewportController.clientToWorld({
         x: bounds.left + item.x,
         y: bounds.top + item.y,
-      }),
-    }));
+      });
+      const candidateId = `${item.kind}:${item.resource_id}`;
+      const insertion = planCanvasInsertion({
+        candidate: {
+          id: candidateId,
+          ...desired,
+          width: CANVAS_CARD_WIDTH,
+          height: CANVAS_CARD_HEIGHT,
+        },
+        obstacles: [...occupiedById.values()],
+        gap: CANVAS_INSERTION_GAP,
+      });
+
+      insertion.moved.forEach((position) => {
+        const occupied = occupiedById.get(position.id);
+        if (!occupied) return;
+        Object.assign(occupied, position);
+        if (existingItemIds.has(position.id)) {
+          movedExistingById.set(position.id, {
+            itemId: position.id,
+            x: position.x,
+            y: position.y,
+          });
+        } else {
+          const plannedAddition = additions.find(
+            (addition) => addition.planId === position.id,
+          );
+          if (plannedAddition) Object.assign(plannedAddition, position);
+        }
+      });
+
+      occupiedById.set(candidateId, insertion.position);
+      additions.push({
+        ...item,
+        planId: candidateId,
+        x: insertion.position.x,
+        y: insertion.position.y,
+      });
+    });
+
+    return {
+      additions: additions.map(({ planId: _planId, ...addition }) => addition),
+      movedExisting: [...movedExistingById.values()],
+    };
   }
 
   function closeAccountMenu() {
@@ -301,6 +401,7 @@ export function mountApp(root, { api, authSession, themeController }) {
         );
         if (distance < 6) return;
         dragging = true;
+        bringCardToFront(position);
         position.classList.add('is-dragging');
       }
 
@@ -316,7 +417,7 @@ export function mountApp(root, { api, authSession, themeController }) {
       renderScheduler.request({ items: [item.id], minimap: true });
     }
 
-    async function finishDrag(finishEvent) {
+    function finishDrag(finishEvent) {
       if (finishEvent.pointerId !== event.pointerId) return;
       position.removeEventListener('pointermove', onPointerMove);
       position.removeEventListener('pointerup', finishDrag);
@@ -328,24 +429,11 @@ export function mountApp(root, { api, authSession, themeController }) {
       item.x = Math.round(nextPosition.x);
       item.y = Math.round(nextPosition.y);
       renderScheduler.request({ items: [item.id], minimap: true });
-      state.saving = true;
-      root.dataset.saving = 'true';
-      try {
-        const result = await api.updateLayout({
-          baseRevision: state.canvas.revision,
-          changes: [{
-            itemId: item.id,
-            x: item.x,
-            y: item.y,
-          }],
-        });
-        state.canvas.revision = result.revision;
-      } catch (_error) {
-        await loadCanvas();
-      } finally {
-        state.saving = false;
-        delete root.dataset.saving;
-      }
+      layoutUpdates.enqueue({
+        itemId: item.id,
+        x: item.x,
+        y: item.y,
+      });
     }
 
     function cancelDrag(cancelEvent) {
@@ -376,6 +464,7 @@ export function mountApp(root, { api, authSession, themeController }) {
       const position = document.createElement('div');
       position.className = 'canvas-card-position';
       position.dataset.itemId = item.id;
+      position.style.zIndex = '2';
       position.innerHTML = cardView({
         type: item.kind,
         title: resource.title,
@@ -389,8 +478,14 @@ export function mountApp(root, { api, authSession, themeController }) {
     }
     renderScheduler.request({ allItems: true, minimap: true });
 
-    const missingSamples = missingDemoPlacements();
-    elements.addSamples.disabled = !authenticated || state.loading || state.saving || missingSamples.length === 0;
+    const insertionPlan = planMissingDemoInsertions();
+    elements.addSamples.disabled = (
+      !authenticated
+      || state.loading
+      || state.saving
+      || layoutUpdates.isBusy()
+      || insertionPlan.additions.length === 0
+    );
 
     elements.emptyState.hidden = items.length > 0 && !state.error;
     if (checking) {
@@ -436,7 +531,12 @@ export function mountApp(root, { api, authSession, themeController }) {
   }
 
   async function addSamples() {
-    if (state.sessionStatus !== 'authenticated' || state.saving || state.loading) {
+    if (
+      state.sessionStatus !== 'authenticated'
+      || state.saving
+      || state.loading
+      || layoutUpdates.isBusy()
+    ) {
       return;
     }
 
@@ -445,7 +545,15 @@ export function mountApp(root, { api, authSession, themeController }) {
     elements.addSamples.disabled = true;
     elements.emptyAction.disabled = true;
     try {
-      for (const placement of missingDemoPlacements()) {
+      const insertionPlan = planMissingDemoInsertions();
+      if (insertionPlan.movedExisting.length > 0) {
+        const result = await api.updateLayout({
+          baseRevision: state.canvas.revision,
+          changes: insertionPlan.movedExisting,
+        });
+        state.canvas.revision = result.revision;
+      }
+      for (const placement of insertionPlan.additions) {
         await api.addItem(placement);
       }
       await loadCanvas();
@@ -498,6 +606,7 @@ export function mountApp(root, { api, authSession, themeController }) {
     elements.accountButton.disabled = true;
     await authSession.signOut();
     state.canvas = null;
+    layoutUpdates.clear();
     state.error = null;
     state.user = null;
     state.sessionStatus = 'guest';

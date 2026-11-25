@@ -468,7 +468,6 @@ export function mountApp(root, { api, authSession, themeController }) {
       position.innerHTML = cardView({
         type: item.kind,
         title: resource.title,
-        detail: resource.detail,
       });
       position.addEventListener('pointerdown', (event) => {
         beginDrag(event, item, position);

@@ -12,6 +12,7 @@ import {
   CANVAS_CARD_WIDTH,
   CANVAS_INSERTION_GAP,
 } from './canvas/geometry.js';
+import { syncCanvasGrid } from './canvas/grid-projection.js';
 import { createLayoutUpdateQueue } from './canvas/layout-update-queue.js';
 import { createCanvasMinimap } from './canvas/minimap.js';
 import { planCanvasInsertion } from './canvas/placement.js';
@@ -334,7 +335,8 @@ export function mountApp(root, {
         '.canvas-card-position, button, input, textarea, select, a',
       );
     },
-    onRender() {
+    onRender(camera) {
+      syncCanvasGrid(elements.canvasViewport, camera);
       renderScheduler.request({ minimap: true });
     },
     onCommit(camera) {

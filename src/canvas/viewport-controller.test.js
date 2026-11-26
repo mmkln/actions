@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  fitCameraToBounds,
   MAXIMUM_CANVAS_SCALE,
   MINIMUM_CANVAS_SCALE,
   normalizeCanvasCamera,
@@ -19,4 +20,15 @@ test('normalizes camera input to the Actions zoom range', () => {
     y: 0,
     scale: MINIMUM_CANVAS_SCALE,
   });
+});
+
+test('fits world bounds inside the viewport with screen-space padding', () => {
+  assert.deepEqual(
+    fitCameraToBounds(
+      { x: 0, y: 0, width: 2000, height: 1000 },
+      { width: 1000, height: 800 },
+      { padding: 100 },
+    ),
+    { x: 100, y: 200, scale: 0.4 },
+  );
 });

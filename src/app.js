@@ -14,7 +14,6 @@ import {
 } from './canvas/geometry.js';
 import { syncCanvasGrid } from './canvas/grid-projection.js';
 import { createLayoutUpdateQueue } from './canvas/layout-update-queue.js';
-import { createCanvasMinimap } from './canvas/minimap.js';
 import { planCanvasInsertion } from './canvas/placement.js';
 import { createCanvasRenderScheduler } from './canvas/render-scheduler.js';
 import { createCanvasViewportController } from './canvas/viewport-controller.js';
@@ -94,17 +93,10 @@ function shellView() {
       </section>
 
       <aside class="navigation-hud" aria-label="Canvas navigation" data-navigation-hud hidden>
-        <canvas
-          class="canvas-minimap"
-          data-canvas-minimap
-          tabindex="0"
-          aria-label="Canvas minimap. Click or drag to navigate. Use arrow keys to pan."
-        ></canvas>
-        <div class="canvas-controls" role="group" aria-label="Canvas zoom">
-          <button type="button" data-zoom-out aria-label="Zoom out" title="Zoom out">−</button>
-          <button class="canvas-zoom-reset" type="button" data-zoom-reset aria-label="Reset zoom" title="Reset zoom">100%</button>
-          <button type="button" data-zoom-in aria-label="Zoom in" title="Zoom in">+</button>
-        </div>
+        <button class="canvas-fit-button" type="button" aria-label="Fit canvas content" title="Fit canvas content" data-fit-canvas>
+          ${icon('fit')}
+          <span>Fit</span>
+        </button>
       </aside>
 
       <div class="connection-toolbar" role="toolbar" aria-label="Edit connections" data-connection-toolbar hidden>
@@ -145,7 +137,8 @@ function shellView() {
           </section>
         </div>
         <div class="composer__search-icon" aria-hidden="true">${icon('search')}</div>
-        <input class="composer__search" type="search" placeholder="Search tasks and thoughts…" autocomplete="off" aria-label="Search tasks and thoughts" aria-controls="resource-search-results" aria-expanded="false" data-resource-search disabled>
+        <input class="composer__search" type="search" placeholder="Search tasks and thoughts…" autocomplete="off" aria-label="Search tasks and thoughts" aria-keyshortcuts="Control+K Meta+K" aria-controls="resource-search-results" aria-expanded="false" data-resource-search disabled>
+        <kbd class="composer__shortcut" aria-hidden="true" data-resource-search-shortcut></kbd>
         <button class="composer__clear" type="button" aria-label="Clear resource search" data-resource-search-clear hidden>${icon('close')}</button>
       </div>
     </main>
@@ -176,16 +169,14 @@ export function mountApp(root, {
     connectionLayer: root.querySelector('[data-connection-layer]'),
     canvasItems: root.querySelector('[data-canvas-items]'),
     navigationHud: root.querySelector('[data-navigation-hud]'),
-    minimap: root.querySelector('[data-canvas-minimap]'),
-    zoomOut: root.querySelector('[data-zoom-out]'),
-    zoomReset: root.querySelector('[data-zoom-reset]'),
-    zoomIn: root.querySelector('[data-zoom-in]'),
+    fitCanvas: root.querySelector('[data-fit-canvas]'),
     emptyState: root.querySelector('[data-empty-state]'),
     emptyTitle: root.querySelector('[data-empty-title]'),
     emptyCopy: root.querySelector('[data-empty-copy]'),
     emptyAction: root.querySelector('[data-empty-action]'),
     resourceSearchPopover: root.querySelector('[data-resource-search-popover]'),
     resourceSearch: root.querySelector('[data-resource-search]'),
+    resourceSearchShortcut: root.querySelector('[data-resource-search-shortcut]'),
     resourceSearchClear: root.querySelector('[data-resource-search-clear]'),
     resourceSearchStatus: root.querySelector('[data-resource-search-status]'),
     resourceResults: root.querySelector('[data-resource-results]'),
@@ -237,12 +228,52 @@ export function mountApp(root, {
   let hydrationGeneration = 0;
   let removalTimer = null;
 
+  const platform = navigator.userAgentData?.platform ?? navigator.platform ?? '';
+  elements.resourceSearchShortcut.textContent = /Mac|iPhone|iPad|iPod/i.test(platform)
+    ? '⌘ K'
+    : 'Ctrl K';
+
   function resourceKey(kind, resourceId) {
     return `${kind}:${resourceId}`;
   }
 
   function itemById(itemId) {
     return (state.canvas?.items ?? []).find(({ id }) => id === itemId) ?? null;
+  }
+
+  function canvasContentBounds() {
+    const items = state.canvas?.items ?? [];
+    if (!items.length) return null;
+
+    const boxes = items.map((item) => {
+      const card = cardElements.get(item.id)?.querySelector('.canvas-card');
+      return {
+        x: item.x,
+        y: item.y,
+        width: card?.offsetWidth || CANVAS_CARD_WIDTH,
+        height: card?.offsetHeight || CANVAS_CARD_HEIGHT,
+      };
+    });
+    const left = Math.min(...boxes.map(({ x }) => x));
+    const top = Math.min(...boxes.map(({ y }) => y));
+    const right = Math.max(...boxes.map(({ x, width }) => x + width));
+    const bottom = Math.max(...boxes.map(({ y, height }) => y + height));
+
+    return {
+      x: left,
+      y: top,
+      width: right - left,
+      height: bottom - top,
+    };
+  }
+
+  function fitCanvasContent() {
+    const bounds = canvasContentBounds();
+    if (bounds) {
+      viewportController.fitBounds(bounds);
+    } else {
+      viewportController.reset(null, { persist: true });
+    }
   }
 
   function renderItemPosition(itemId) {
@@ -281,30 +312,10 @@ export function mountApp(root, {
     },
   });
 
-  function renderMinimap() {
-    if (elements.navigationHud.hidden || !viewportController) return;
-    const bounds = elements.canvasViewport.getBoundingClientRect();
-    canvasMinimap.render({
-      camera: viewportController.getCamera(),
-      viewport: { width: bounds.width, height: bounds.height },
-      cards: (state.canvas?.items ?? []).map((item) => {
-        const card = cardElements.get(item.id)?.querySelector('.canvas-card');
-        return {
-          id: item.id,
-          x: item.x,
-          y: item.y,
-          width: card?.offsetWidth || 280,
-          height: card?.offsetHeight || 96,
-        };
-      }),
-      connections: state.connections,
-    });
-  }
-
   const renderScheduler = createCanvasRenderScheduler({
     requestFrame: window.requestAnimationFrame.bind(window),
     cancelFrame: window.cancelAnimationFrame.bind(window),
-    onFlush({ allItems, itemIds, minimap, connections }) {
+    onFlush({ allItems, itemIds, connections }) {
       if (allItems) {
         (state.canvas?.items ?? []).forEach(({ id }) => renderItemPosition(id));
       } else {
@@ -313,23 +324,12 @@ export function mountApp(root, {
       if (connections || allItems || itemIds.size > 0) {
         connectionRenderer.update();
       }
-      if (minimap) renderMinimap();
-    },
-  });
-
-  const canvasMinimap = createCanvasMinimap({
-    canvas: elements.minimap,
-    onNavigate(point) {
-      viewportController?.centerAtWorldPoint(point);
     },
   });
 
   viewportController = createCanvasViewportController({
     viewport: elements.canvasViewport,
     world: elements.canvasWorld,
-    zoomOutButton: elements.zoomOut,
-    zoomResetButton: elements.zoomReset,
-    zoomInButton: elements.zoomIn,
     shouldStartPan(event) {
       return event.button === 0 && !event.target.closest(
         '.canvas-card-position, button, input, textarea, select, a',
@@ -337,7 +337,6 @@ export function mountApp(root, {
     },
     onRender(camera) {
       syncCanvasGrid(elements.canvasViewport, camera);
-      renderScheduler.request({ minimap: true });
     },
     onCommit(camera) {
       saveCanvasCamera(localStorage, state.user?.id, camera);
@@ -374,6 +373,7 @@ export function mountApp(root, {
     );
     elements.resourceSearch.disabled = disabled;
     elements.resourceSearchClear.hidden = !elements.resourceSearch.value;
+    elements.resourceSearchShortcut.hidden = Boolean(elements.resourceSearch.value);
   }
 
   function rebuildConnectionLayer() {
@@ -386,7 +386,6 @@ export function mountApp(root, {
     ));
     connectionRenderer.setConnections(renderable);
     connectionRenderer.update();
-    renderScheduler.request({ minimap: true });
   }
 
   function renderConnectionUi() {
@@ -559,7 +558,6 @@ export function mountApp(root, {
       option.classList.toggle('is-selected', selected);
       option.setAttribute('aria-checked', String(selected));
     });
-    renderScheduler.request({ minimap: true });
   }
 
   function renderSession() {
@@ -637,7 +635,6 @@ export function mountApp(root, {
       renderScheduler.request({
         items: [item.id],
         connections: true,
-        minimap: true,
       });
     }
 
@@ -655,7 +652,6 @@ export function mountApp(root, {
       renderScheduler.request({
         items: [item.id],
         connections: true,
-        minimap: true,
       });
       layoutUpdates.enqueue({
         itemId: item.id,
@@ -675,7 +671,6 @@ export function mountApp(root, {
       renderScheduler.request({
         items: [item.id],
         connections: true,
-        minimap: true,
       });
     }
 
@@ -1244,7 +1239,6 @@ export function mountApp(root, {
     renderScheduler.request({
       allItems: true,
       connections: true,
-      minimap: true,
     });
 
     elements.emptyState.hidden = items.length > 0 && !state.error;
@@ -1391,6 +1385,15 @@ export function mountApp(root, {
   });
 
   document.addEventListener('keydown', (event) => {
+    if (
+      (event.metaKey || event.ctrlKey)
+      && event.key.toLowerCase() === 'k'
+      && !elements.resourceSearch.disabled
+    ) {
+      event.preventDefault();
+      elements.resourceSearch.focus();
+      return;
+    }
     if (state.connectionEditor && event.key === 'Escape') {
       event.preventDefault();
       cancelConnectionEditor();
@@ -1422,11 +1425,9 @@ export function mountApp(root, {
   elements.canvasActionUndo.addEventListener('click', () => {
     void undoItemRemoval();
   });
+  elements.fitCanvas.addEventListener('click', fitCanvasContent);
 
   themeController.subscribe(renderAppearance);
-  window.addEventListener('resize', () => {
-    renderScheduler.request({ minimap: true });
-  });
 
   async function initialize() {
     renderSession();

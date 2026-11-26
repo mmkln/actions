@@ -8,6 +8,37 @@ function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+export function fitCameraToBounds(
+  bounds,
+  viewport,
+  {
+    padding = 96,
+    minimumScale = MINIMUM_CANVAS_SCALE,
+    maximumScale = MAXIMUM_CANVAS_SCALE,
+  } = {},
+) {
+  const width = Math.max(1, Number.isFinite(bounds?.width) ? bounds.width : 1);
+  const height = Math.max(1, Number.isFinite(bounds?.height) ? bounds.height : 1);
+  const viewportWidth = Math.max(1, Number.isFinite(viewport?.width) ? viewport.width : 1);
+  const viewportHeight = Math.max(1, Number.isFinite(viewport?.height) ? viewport.height : 1);
+  const safePadding = Math.max(0, Number.isFinite(padding) ? padding : 0);
+  const availableWidth = Math.max(1, viewportWidth - safePadding * 2);
+  const availableHeight = Math.max(1, viewportHeight - safePadding * 2);
+  const scale = clamp(
+    Math.min(availableWidth / width, availableHeight / height),
+    minimumScale,
+    maximumScale,
+  );
+  const centerX = (Number.isFinite(bounds?.x) ? bounds.x : 0) + width / 2;
+  const centerY = (Number.isFinite(bounds?.y) ? bounds.y : 0) + height / 2;
+
+  return {
+    x: viewportWidth / 2 - centerX * scale,
+    y: viewportHeight / 2 - centerY * scale,
+    scale,
+  };
+}
+
 export function normalizeCanvasCamera(
   camera,
   { minimumScale = MINIMUM_CANVAS_SCALE, maximumScale = MAXIMUM_CANVAS_SCALE } = {},
@@ -120,6 +151,20 @@ export function createCanvasViewportController({
     if (persist) commit();
   }
 
+  function fitBounds(bounds, { padding = 96, persist = true } = {}) {
+    const viewportBounds = viewport.getBoundingClientRect();
+    Object.assign(
+      camera,
+      fitCameraToBounds(
+        bounds,
+        { width: viewportBounds.width, height: viewportBounds.height },
+        { padding, minimumScale, maximumScale },
+      ),
+    );
+    render();
+    if (persist) commit();
+  }
+
   function handlePointerDown(event) {
     if (!shouldStartPan(event)) return;
     pan = {
@@ -178,6 +223,7 @@ export function createCanvasViewportController({
     animateScale,
     centerAtWorldPoint,
     clientToWorld,
+    fitBounds,
     getCamera: snapshot,
     render,
     reset,

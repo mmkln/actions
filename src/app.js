@@ -21,6 +21,9 @@ import {
   findDemoResource,
   resolveResource,
 } from './domain/demo-resources.js';
+import {
+  getResourceCreationOptions,
+} from './domain/resource-creation.js';
 import { cardView } from './ui/card.js';
 import {
   getConnectionActionState,
@@ -118,6 +121,27 @@ function shellView() {
         <div class="resource-search-popover" data-resource-search-popover hidden>
           <p class="resource-search-popover__status" data-resource-search-status></p>
           <div class="resource-search-popover__results" id="resource-search-results" role="listbox" aria-label="Tasks and thoughts" data-resource-results></div>
+          <section class="resource-create-panel" data-resource-create hidden>
+            <div class="resource-create-panel__main">
+              <span class="resource-create-panel__icon" data-resource-create-icon aria-hidden="true"></span>
+              <span class="resource-create-panel__copy">
+                <small data-resource-create-label>New task</small>
+                <strong data-resource-create-title></strong>
+              </span>
+            </div>
+            <div class="resource-create-panel__footer">
+              <div class="resource-create-kind" role="group" aria-label="New resource type" data-resource-create-kinds>
+                <button type="button" data-resource-create-kind="task" aria-pressed="true">
+                  ${icon('check')}<span>Task</span>
+                </button>
+                <button type="button" data-resource-create-kind="thought" aria-pressed="false">
+                  ${icon('spark')}<span>Thought</span>
+                </button>
+              </div>
+              <button class="resource-create-panel__action" type="button" data-resource-create-action>Create &amp; Place</button>
+            </div>
+            <p class="resource-create-panel__note" data-resource-create-note hidden></p>
+          </section>
         </div>
         <div class="composer__search-icon" aria-hidden="true">${icon('search')}</div>
         <input class="composer__search" type="search" placeholder="Search tasks and thoughts…" autocomplete="off" aria-label="Search tasks and thoughts" aria-controls="resource-search-results" aria-expanded="false" data-resource-search disabled>
@@ -164,6 +188,14 @@ export function mountApp(root, {
     resourceSearchClear: root.querySelector('[data-resource-search-clear]'),
     resourceSearchStatus: root.querySelector('[data-resource-search-status]'),
     resourceResults: root.querySelector('[data-resource-results]'),
+    resourceCreate: root.querySelector('[data-resource-create]'),
+    resourceCreateIcon: root.querySelector('[data-resource-create-icon]'),
+    resourceCreateLabel: root.querySelector('[data-resource-create-label]'),
+    resourceCreateTitle: root.querySelector('[data-resource-create-title]'),
+    resourceCreateKinds: root.querySelector('[data-resource-create-kinds]'),
+    resourceCreateKindButtons: [...root.querySelectorAll('[data-resource-create-kind]')],
+    resourceCreateAction: root.querySelector('[data-resource-create-action]'),
+    resourceCreateNote: root.querySelector('[data-resource-create-note]'),
     connectionToolbar: root.querySelector('[data-connection-toolbar]'),
     connectionCancel: root.querySelector('[data-connection-cancel]'),
     connectionCount: root.querySelector('[data-connection-count]'),
@@ -188,6 +220,8 @@ export function mountApp(root, {
     unavailableSources: [],
     selectedResourceKey: null,
     searchOpen: false,
+    resourceCreateKind: 'task',
+    resourceAction: null,
     connections: [],
     connectionEditor: null,
     connectionSaving: false,
@@ -727,6 +761,77 @@ export function mountApp(root, {
     return button;
   }
 
+  function resourceCreationOptions() {
+    return getResourceCreationOptions({
+      query: elements.resourceSearch.value,
+      results: state.searchResults,
+      unavailableSources: state.unavailableSources,
+    });
+  }
+
+  function reconcileResourceCreateKind(options = resourceCreationOptions()) {
+    const selected = options.find(({ kind }) => kind === state.resourceCreateKind);
+    if (selected?.canCreate) return;
+    const fallback = options.find(({ canCreate }) => canCreate)
+      ?? options.find(({ duplicate }) => !duplicate);
+    if (fallback) state.resourceCreateKind = fallback.kind;
+  }
+
+  function selectedResourceCreationOption() {
+    return resourceCreationOptions().find(
+      ({ kind }) => kind === state.resourceCreateKind,
+    ) ?? null;
+  }
+
+  function renderResourceCreation() {
+    const options = resourceCreationOptions();
+    reconcileResourceCreateKind(options);
+    const proposal = options.find(
+      ({ kind }) => kind === state.resourceCreateKind,
+    );
+    const hasCreatableType = options.some(({ duplicate }) => !duplicate);
+    const visible = (
+      state.searchOpen
+      && !state.searchLoading
+      && !state.searchError
+      && Boolean(proposal)
+      && hasCreatableType
+    );
+    elements.resourceCreate.hidden = !visible;
+    if (!visible) return;
+
+    const isTask = proposal.kind === 'task';
+    elements.resourceCreate.dataset.kind = proposal.kind;
+    elements.resourceCreateIcon.className = (
+      `resource-create-panel__icon is-${proposal.kind}`
+    );
+    elements.resourceCreateIcon.innerHTML = icon(isTask ? 'check' : 'spark');
+    elements.resourceCreateLabel.textContent = isTask ? 'New task' : 'New thought';
+    elements.resourceCreateTitle.textContent = proposal.title;
+    elements.resourceCreateAction.disabled = state.saving || !proposal.canCreate;
+    elements.resourceCreateAction.textContent = (
+      state.resourceAction === 'create' ? 'Creating…' : 'Create & Place'
+    );
+
+    elements.resourceCreateKindButtons.forEach((button) => {
+      const option = options.find(({ kind }) => kind === button.dataset.resourceCreateKind);
+      const selected = option?.kind === proposal.kind;
+      button.setAttribute('aria-pressed', String(selected));
+      button.disabled = !option || option.duplicate || option.sourceUnavailable || option.tooLong;
+    });
+
+    let note = '';
+    if (proposal.tooLong) {
+      note = `${isTask ? 'Task titles' : 'Thoughts'} can contain up to ${proposal.maximumLength} characters.`;
+    } else if (proposal.sourceUnavailable) {
+      note = `${isTask ? 'Majom' : 'Flying Thoughts'} is temporarily unavailable.`;
+    } else if (proposal.duplicate) {
+      note = `This ${proposal.kind} already exists.`;
+    }
+    elements.resourceCreateNote.textContent = note;
+    elements.resourceCreateNote.hidden = !note;
+  }
+
   function renderResourceSearch() {
     elements.resourceResults.replaceChildren();
     elements.resourceSearchPopover.hidden = !state.searchOpen;
@@ -736,44 +841,46 @@ export function mountApp(root, {
     );
     syncResourceControls();
 
+    elements.resourceCreate.hidden = true;
     if (!state.searchOpen) return;
 
     if (state.searchLoading) {
       elements.resourceSearchStatus.textContent = 'Searching tasks and thoughts…';
-      return;
-    }
-    if (state.searchError) {
+    } else if (state.searchError) {
       elements.resourceSearchStatus.textContent = state.searchError.message;
-      return;
-    }
-    if (!state.searchResults.length) {
-      elements.resourceSearchStatus.textContent = 'No matching tasks or thoughts.';
-      return;
+    } else {
+      selectFirstAvailableResource();
+      const creationOptions = resourceCreationOptions();
+      const hasCreationCandidate = creationOptions.some(({ duplicate }) => !duplicate);
+      elements.resourceSearchStatus.textContent = state.unavailableSources.length
+        ? 'Some sources are temporarily unavailable.'
+        : !state.searchResults.length && !hasCreationCandidate
+          ? 'No matching tasks or thoughts.'
+          : '';
     }
 
-    selectFirstAvailableResource();
-    elements.resourceSearchStatus.textContent = state.unavailableSources.length
-      ? 'Some sources are temporarily unavailable.'
-      : '';
-    const fragment = document.createDocumentFragment();
-    [
-      ['task', 'Tasks'],
-      ['thought', 'Thoughts'],
-    ].forEach(([kind, label]) => {
-      const resources = state.searchResults.filter(
-        (resource) => resource.kind === kind,
-      );
-      if (!resources.length) return;
-      const group = document.createElement('section');
-      group.className = 'resource-search-popover__group';
-      group.setAttribute('role', 'group');
-      group.setAttribute('aria-label', label);
-      const heading = document.createElement('h3');
-      heading.textContent = label;
-      group.append(heading, ...resources.map(createResourceResult));
-      fragment.append(group);
-    });
-    elements.resourceResults.append(fragment);
+    if (!state.searchLoading) {
+      const fragment = document.createDocumentFragment();
+      [
+        ['task', 'Tasks'],
+        ['thought', 'Thoughts'],
+      ].forEach(([kind, label]) => {
+        const resources = state.searchResults.filter(
+          (resource) => resource.kind === kind,
+        );
+        if (!resources.length) return;
+        const group = document.createElement('section');
+        group.className = 'resource-search-popover__group';
+        group.setAttribute('role', 'group');
+        group.setAttribute('aria-label', label);
+        const heading = document.createElement('h3');
+        heading.textContent = label;
+        group.append(heading, ...resources.map(createResourceResult));
+        fragment.append(group);
+      });
+      elements.resourceResults.append(fragment);
+    }
+    renderResourceCreation();
     syncResourceControls();
   }
 
@@ -790,10 +897,12 @@ export function mountApp(root, {
       if (generation !== searchGeneration) return;
       state.searchResults = payload.results ?? [];
       state.unavailableSources = payload.unavailable_sources ?? [];
+      reconcileResourceCreateKind();
       selectFirstAvailableResource();
     } catch (error) {
       if (generation !== searchGeneration) return;
       state.searchResults = [];
+      state.unavailableSources = error.payload?.unavailable_sources ?? [];
       state.searchError = error;
     } finally {
       if (generation === searchGeneration) {
@@ -859,15 +968,19 @@ export function mountApp(root, {
     ) ?? null;
   }
 
-  async function addResource(resource) {
-    if (state.saving || resourceIsOnCanvas(resource)) return;
+  async function placeResource(resolveNextResource, operation) {
+    if (state.saving) return;
 
     state.saving = true;
+    state.resourceAction = operation;
     state.searchError = null;
     root.dataset.saving = 'true';
     syncResourceControls();
     renderResourceSearch();
+    let resource = null;
     try {
+      resource = await resolveNextResource();
+      if (!resource || resourceIsOnCanvas(resource)) return;
       const insertion = planResourceInsertion(resource);
       if (insertion.movedExisting.length > 0) {
         const layoutResult = await api.updateLayout({
@@ -899,13 +1012,45 @@ export function mountApp(root, {
       state.selectedResourceKey = null;
       closeResourceSearch();
     } catch (error) {
-      state.searchError = error;
+      if (resource && operation === 'create') {
+        const key = resourceKey(resource.kind, resource.resource_id);
+        state.searchResults = [
+          resource,
+          ...state.searchResults.filter((item) => (
+            resourceKey(item.kind, item.resource_id) !== key
+          )),
+        ];
+        state.selectedResourceKey = key;
+        state.searchError = new Error(
+          `Created in ${resource.source === 'majom' ? 'Majom' : 'Flying Thoughts'}, but couldn’t place it on the canvas. Try again.`,
+        );
+      } else {
+        state.searchError = error;
+      }
     } finally {
       state.saving = false;
+      state.resourceAction = null;
       delete root.dataset.saving;
       syncResourceControls();
       renderResourceSearch();
     }
+  }
+
+  function addResource(resource) {
+    if (resourceIsOnCanvas(resource)) return Promise.resolve();
+    return placeResource(() => Promise.resolve(resource), 'add');
+  }
+
+  function createResourceAndPlace() {
+    const proposal = selectedResourceCreationOption();
+    if (!proposal?.canCreate) return Promise.resolve();
+    return placeResource(async () => {
+      const payload = await catalogApi.create({
+        kind: proposal.kind,
+        title: proposal.title,
+      });
+      return payload.resource;
+    }, 'create');
   }
 
   function hideCanvasActionToast() {
@@ -1156,6 +1301,15 @@ export function mountApp(root, {
     scheduleResourceSearch();
     elements.resourceSearch.focus();
   });
+  elements.resourceCreateKinds.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-resource-create-kind]');
+    if (!button || button.disabled) return;
+    state.resourceCreateKind = button.dataset.resourceCreateKind;
+    renderResourceSearch();
+  });
+  elements.resourceCreateAction.addEventListener('click', () => {
+    void createResourceAndPlace();
+  });
   elements.resourceSearch.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
@@ -1166,6 +1320,7 @@ export function mountApp(root, {
       event.preventDefault();
       const resource = selectedResource();
       if (resource) void addResource(resource);
+      else void createResourceAndPlace();
       return;
     }
     if (event.key === 'Escape') {

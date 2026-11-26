@@ -6,6 +6,13 @@ export function createResourceCatalogApi({ request }) {
       return request(`/catalog/search/?${params}`);
     },
 
+    create({ kind, title }) {
+      return request('/catalog/resources/', {
+        method: 'POST',
+        body: JSON.stringify({ kind, title }),
+      });
+    },
+
     resolve(references) {
       if (!references.length) {
         return Promise.resolve({

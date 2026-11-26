@@ -41,6 +41,25 @@ test('resolves mixed resource references with one batch request', async () => {
   assert.deepEqual(JSON.parse(captured.options.body), { references });
 });
 
+test('creates a source resource through the Actions BFF', async () => {
+  let captured;
+  const api = createResourceCatalogApi({
+    request(path, options) {
+      captured = { path, options };
+      return Promise.resolve({ resource: {} });
+    },
+  });
+
+  await api.create({ kind: 'thought', title: 'A useful thought' });
+
+  assert.equal(captured.path, '/catalog/resources/');
+  assert.equal(captured.options.method, 'POST');
+  assert.deepEqual(JSON.parse(captured.options.body), {
+    kind: 'thought',
+    title: 'A useful thought',
+  });
+});
+
 test('does not call the backend for an empty reference batch', async () => {
   let called = false;
   const api = createResourceCatalogApi({

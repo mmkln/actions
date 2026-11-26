@@ -45,11 +45,11 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --app-background: #0e0d14;
-  --app-gradient-one: rgba(103, 72, 180, 0.16);
-  --app-gradient-two: rgba(46, 111, 148, 0.14);
-  --app-gradient-three: rgba(146, 78, 54, 0.11);
-  --texture-dot: rgba(211, 201, 236, 0.1);
+  --app-background: #0b0a11;
+  --app-gradient-one: rgba(85, 58, 158, 0.14);
+  --app-gradient-two: rgba(36, 85, 126, 0.11);
+  --app-gradient-three: rgba(115, 76, 163, 0.055);
+  --texture-dot: rgba(196, 181, 245, 0.17);
   --surface-translucent: rgba(29, 27, 39, 0.78);
   --surface: rgba(29, 27, 39, 0.9);
   --surface-elevated: rgba(35, 32, 47, 0.97);
@@ -113,9 +113,9 @@ button:disabled {
   min-height: 100vh;
   overflow: hidden;
   background:
-    radial-gradient(circle at 10% 6%, var(--app-gradient-one), transparent 25rem),
-    radial-gradient(circle at 89% 81%, var(--app-gradient-two), transparent 26rem),
-    radial-gradient(circle at 75% 5%, var(--app-gradient-three), transparent 21rem),
+    radial-gradient(70rem 56rem at 7% 4%, var(--app-gradient-one), transparent 62%),
+    radial-gradient(66rem 54rem at 96% 91%, var(--app-gradient-two), transparent 64%),
+    radial-gradient(48rem 38rem at 60% 34%, var(--app-gradient-three), transparent 66%),
     var(--app-background);
   transition: background-color 180ms ease, color 180ms ease;
 }
@@ -126,9 +126,22 @@ button:disabled {
   z-index: 0;
   inset: 0;
   pointer-events: none;
-  opacity: 0.37;
-  background-image: radial-gradient(var(--texture-dot) 0.65px, transparent 0.65px);
-  background-size: 21px 21px;
+  opacity: 0.42;
+  background-image: radial-gradient(circle, var(--texture-dot) 0.7px, transparent 0.8px);
+  background-size: 20px 20px;
+}
+
+:root[data-theme="dark"] .app-shell::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 36%,
+    rgba(0, 0, 0, 0.18) 100%
+  );
 }
 
 .topbar {

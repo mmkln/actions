@@ -98,6 +98,7 @@
   --action-card-border-hover: #5f398f;
   --action-card-ink: #281832;
   --action-card-label: #65566b;
+  --action-card-highlight: rgba(255, 255, 255, 0.42);
   --action-card-shadow:
     0 9px 24px rgba(72, 46, 93, 0.11),
     0 2px 5px rgba(72, 46, 93, 0.05),
@@ -219,24 +220,25 @@
   --task-color: #f08c76;
   --action-surface: rgba(182, 154, 220, 0.16);
   --action-color: #c4a9e7;
-  --action-card-paper: #29202f;
-  --action-card-paper-light: #372b3e;
-  --action-card-border: #ad7be8;
-  --action-card-border-hover: #c69bf3;
-  --action-card-ink: #f8eee7;
-  --action-card-label: #e5d8e3;
+  --action-card-paper: #241c2c;
+  --action-card-paper-light: #302438;
+  --action-card-border: #a873dc;
+  --action-card-border-hover: #bb8bea;
+  --action-card-ink: #f4ede7;
+  --action-card-label: #e7dce6;
+  --action-card-highlight: rgba(196, 154, 231, 0.12);
   --action-card-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.28),
-    0 0 18px rgba(173, 123, 232, 0.08),
-    inset 0 1px rgba(255, 255, 255, 0.08);
+    0 11px 28px rgba(0, 0, 0, 0.3),
+    0 0 18px rgba(168, 115, 220, 0.07),
+    inset 0 1px rgba(255, 255, 255, 0.055);
   --action-card-shadow-hover:
-    0 15px 36px rgba(0, 0, 0, 0.34),
-    0 0 22px rgba(173, 123, 232, 0.12),
-    inset 0 1px rgba(255, 255, 255, 0.1);
+    0 14px 34px rgba(0, 0, 0, 0.36),
+    0 0 22px rgba(168, 115, 220, 0.1),
+    inset 0 1px rgba(255, 255, 255, 0.07);
   --action-card-shadow-dragging:
-    0 20px 44px rgba(0, 0, 0, 0.4),
-    0 0 28px rgba(173, 123, 232, 0.14),
-    inset 0 1px rgba(255, 255, 255, 0.11);
+    0 19px 42px rgba(0, 0, 0, 0.42),
+    0 0 28px rgba(168, 115, 220, 0.13),
+    inset 0 1px rgba(255, 255, 255, 0.08);
   --achievement-surface: rgba(105, 157, 100, 0.17);
   --achievement-color: #9ac98e;
   --requirement-surface: rgba(90, 126, 174, 0.18);
@@ -1099,9 +1101,9 @@ button:disabled {
   color: var(--action-card-ink);
   background:
     radial-gradient(
-      circle at 18% 6%,
-      rgba(255, 255, 255, 0.3),
-      transparent 52%
+      ellipse at 15% 4%,
+      var(--action-card-highlight),
+      transparent 58%
     ),
     linear-gradient(
       135deg,
@@ -1109,21 +1111,6 @@ button:disabled {
       var(--action-card-paper)
     );
   box-shadow: var(--action-card-shadow);
-}
-
-.canvas-card--action::before {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  opacity: 0.04;
-  pointer-events: none;
-  background-image:
-    repeating-radial-gradient(
-      circle at 30% 20%,
-      currentColor 0 0.4px,
-      transparent 0.7px 3px
-    );
-  content: "";
 }
 
 .canvas-card--thought {

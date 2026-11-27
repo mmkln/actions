@@ -6,6 +6,7 @@ import {
   changeResourceFilter,
   changeResourceQuery,
   chooseResourceKind,
+  completeResourceCreation,
   createResourcePaletteState,
   failResourceSearch,
   finishResourceSearch,
@@ -29,6 +30,30 @@ test('returns from type selection to search', () => {
 
   assert.equal(searching.screen, 'search');
   assert.equal(searching.draft.selectedKind, null);
+});
+
+test('clears the draft after successful resource creation', () => {
+  const queried = changeResourceQuery(
+    createResourcePaletteState(),
+    'Customer demand',
+  );
+  const choosing = chooseResourceKind(
+    beginResourceCreation(queried),
+    'requirement',
+  );
+
+  const completed = completeResourceCreation(choosing);
+
+  assert.equal(completed.screen, 'search');
+  assert.equal(completed.draft.title, '');
+  assert.equal(completed.draft.selectedKind, null);
+  assert.equal(completed.scrollTop, 0);
+  assert.deepEqual(completed.search.results, []);
+  assert.equal(completed.search.status, 'debouncing');
+  assert.equal(
+    completed.search.requestId,
+    choosing.search.requestId + 1,
+  );
 });
 
 test('makes the draft available immediately while search is debouncing', () => {

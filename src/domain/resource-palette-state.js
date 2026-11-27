@@ -170,3 +170,25 @@ export function returnFromResourceCreation(state) {
     actionError: null,
   };
 }
+
+export function completeResourceCreation(state) {
+  return {
+    ...state,
+    screen: RESOURCE_PALETTE_SCREENS.SEARCH,
+    scrollTop: 0,
+    draft: {
+      title: '',
+      selectedKind: null,
+    },
+    search: {
+      requestId: state.search.requestId + 1,
+      status: 'debouncing',
+      results: [],
+      unavailableSources: [],
+      error: null,
+      completedAt: null,
+      refreshing: false,
+    },
+    actionError: null,
+  };
+}

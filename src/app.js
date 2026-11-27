@@ -36,6 +36,7 @@ import {
   changeResourceFilter,
   changeResourceQuery,
   chooseResourceKind,
+  completeResourceCreation,
   createResourcePaletteState,
   failResourceSearch,
   finishResourceSearch,
@@ -737,9 +738,15 @@ export function mountApp(root, {
       || Boolean(state.connectionEditor)
       || layoutUpdates.isBusy()
     );
+    const query = state.resourcePalette.draft.title;
+
+    if (elements.resourceSearch.value !== query) {
+      elements.resourceSearch.value = query;
+    }
+
     elements.resourceSearch.disabled = disabled;
-    elements.resourceSearchClear.hidden = !elements.resourceSearch.value;
-    elements.resourceSearchShortcut.hidden = Boolean(elements.resourceSearch.value);
+    elements.resourceSearchClear.hidden = !query;
+    elements.resourceSearchShortcut.hidden = Boolean(query);
   }
 
   function rebuildConnectionLayer() {
@@ -1575,6 +1582,7 @@ export function mountApp(root, {
     renderResourceSearch();
     let resource = null;
     let placementCompleted = false;
+    let shouldRefreshSearch = false;
     try {
       resource = await resolveNextResource();
       if (!resource || resourceIsOnCanvas(resource)) return;
@@ -1606,35 +1614,23 @@ export function mountApp(root, {
       const placedKey = resourceKey(resource.kind, resource.resource_id);
       showCompletedPlacement(placedKey);
       placementCompleted = true;
-      state.resourcePalette = {
-        ...state.resourcePalette,
-        scrollTop: (
-          state.resourcePalette.screen === RESOURCE_PALETTE_SCREENS.SEARCH
-          && elements.resourceResults.childElementCount > 0
-        )
-          ? elements.resourceResults.scrollTop
-          : state.resourcePalette.scrollTop,
-        ...(operation === 'create' ? {
-          screen: RESOURCE_PALETTE_SCREENS.SEARCH,
-          draft: {
-            ...state.resourcePalette.draft,
-            selectedKind: null,
-          },
-          search: {
-            ...state.resourcePalette.search,
-            status: 'success',
-            results: [
-              resource,
-              ...state.resourcePalette.search.results.filter((item) => (
-                resourceKey(item.kind, item.resource_id) !== placedKey
-              )),
-            ],
-            error: null,
-            completedAt: Date.now(),
-            refreshing: false,
-          },
-        } : {}),
-      };
+      if (operation === 'create') {
+        state.resourcePalette = completeResourceCreation(
+          state.resourcePalette,
+        );
+        state.selectedSearchCommandKey = null;
+        shouldRefreshSearch = true;
+      } else {
+        state.resourcePalette = {
+          ...state.resourcePalette,
+          scrollTop: (
+            state.resourcePalette.screen === RESOURCE_PALETTE_SCREENS.SEARCH
+            && elements.resourceResults.childElementCount > 0
+          )
+            ? elements.resourceResults.scrollTop
+            : state.resourcePalette.scrollTop,
+        };
+      }
       renderCanvas();
       selectFirstAvailableSearchCommand();
     } catch (error) {
@@ -1679,7 +1675,11 @@ export function mountApp(root, {
       state.resourceAction = null;
       delete root.dataset.saving;
       syncResourceControls();
-      renderResourceSearch();
+      if (shouldRefreshSearch) {
+        queueCurrentResourceSearch({ immediate: true });
+      } else {
+        renderResourceSearch();
+      }
     }
   }
 

@@ -300,12 +300,10 @@ export function mountApp(root, {
     canvasActionUndo: root.querySelector('[data-canvas-action-undo]'),
     resourceEditorBackdrop: root.querySelector('[data-resource-editor-backdrop]'),
     resourceEditorHeading: root.querySelector('[data-resource-editor-heading]'),
-    resourceEditorSource: root.querySelector('[data-resource-editor-source]'),
     resourceEditorClose: root.querySelector('[data-resource-editor-close]'),
     resourceEditorInput: root.querySelector('[data-resource-editor-input]'),
     resourceEditorTextarea: root.querySelector('[data-resource-editor-textarea]'),
     resourceEditorError: root.querySelector('[data-resource-editor-error]'),
-    resourceEditorCancel: root.querySelector('[data-resource-editor-cancel]'),
     resourceEditorSave: root.querySelector('[data-resource-editor-save]'),
   };
 
@@ -363,7 +361,6 @@ export function mountApp(root, {
 
     const config = CARD_TYPE_CONFIG[resource.kind];
     elements.resourceEditorHeading.textContent = `Edit ${config.label}`;
-    elements.resourceEditorSource.textContent = config.sourceLabel;
     elements.resourceEditorInput.hidden = config.multiline;
     elements.resourceEditorTextarea.hidden = !config.multiline;
 
@@ -371,7 +368,6 @@ export function mountApp(root, {
     field.maxLength = config.maximumTitleLength;
     field.value = editor.draftTitle;
     field.disabled = editor.saving;
-    elements.resourceEditorCancel.disabled = editor.saving;
     elements.resourceEditorClose.disabled = editor.saving;
     elements.resourceEditorSave.disabled = !canSaveResourceEditor(editor);
     elements.resourceEditorSave.textContent = editor.saving ? 'Saving…' : 'Save';
@@ -1776,7 +1772,6 @@ export function mountApp(root, {
   elements.resourceEditorSave.addEventListener('click', () => {
     void saveResourceEditor();
   });
-  elements.resourceEditorCancel.addEventListener('click', closeEditor);
   elements.resourceEditorClose.addEventListener('click', closeEditor);
   elements.resourceEditorBackdrop.addEventListener('pointerdown', (event) => {
     if (event.target === elements.resourceEditorBackdrop) closeEditor();

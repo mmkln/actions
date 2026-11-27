@@ -151,6 +151,28 @@ test('updates a resource through its normalized catalog identity', async () => {
   });
 });
 
+test('permanently deletes a versioned resource through the BFF', async () => {
+  let captured;
+  const api = createResourceCatalogApi({
+    request(path, options) {
+      captured = { path, options };
+      return Promise.resolve({ removed_item_ids: [] });
+    },
+  });
+
+  await api.delete({
+    kind: 'thought',
+    resourceId: 'thought id',
+    version: 3,
+  });
+
+  assert.equal(
+    captured.path,
+    '/catalog/resources/thought/thought%20id/?version=3',
+  );
+  assert.deepEqual(captured.options, { method: 'DELETE' });
+});
+
 test('does not call the backend for an empty reference batch', async () => {
   let called = false;
   const api = createResourceCatalogApi({

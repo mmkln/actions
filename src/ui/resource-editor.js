@@ -12,6 +12,7 @@ export function resourceEditorView() {
         </div>
         <p class="resource-editor__error" role="alert" data-resource-editor-error hidden></p>
         <footer class="resource-editor__footer">
+          <button class="resource-editor__delete" type="button" data-resource-editor-delete>Delete permanently…</button>
           <button class="resource-editor__save" type="button" data-resource-editor-save>Save</button>
         </footer>
       </section>

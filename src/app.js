@@ -62,6 +62,14 @@ import {
   failResourceEditorSave,
   openResourceEditor,
 } from './domain/resource-editor-state.js';
+import {
+  RESOURCE_DELETE_PHASES,
+  beginResourceDeletion,
+  canConfirmResourceDeletion,
+  confirmResourceDeletion,
+  createResourceDeleteState,
+  failResourceDeletion,
+} from './domain/resource-delete-state.js';
 import { cardView } from './ui/card.js';
 import {
   getConnectionActionState,
@@ -69,6 +77,7 @@ import {
 } from './ui/connection-action-button.js';
 import { icon } from './ui/icons.js';
 import { resourceEditorView } from './ui/resource-editor.js';
+import { resourceDeleteDialogView } from './ui/resource-delete-dialog.js';
 import { findSpatialNeighbor } from './ui/spatial-focus.js';
 
 const RESOURCE_SEARCH_TTL_MS = 60_000;
@@ -154,6 +163,7 @@ function shellView() {
       </div>
 
       ${resourceEditorView()}
+      ${resourceDeleteDialogView()}
 
       <div class="resource-palette-backdrop" data-resource-palette-backdrop hidden></div>
       <div class="composer" role="search" aria-label="Search and add resources" data-composer data-screen="search">
@@ -333,7 +343,14 @@ export function mountApp(root, {
     resourceEditorInput: root.querySelector('[data-resource-editor-input]'),
     resourceEditorTextarea: root.querySelector('[data-resource-editor-textarea]'),
     resourceEditorError: root.querySelector('[data-resource-editor-error]'),
+    resourceEditorDelete: root.querySelector('[data-resource-editor-delete]'),
     resourceEditorSave: root.querySelector('[data-resource-editor-save]'),
+    resourceDeleteBackdrop: root.querySelector('[data-resource-delete-backdrop]'),
+    resourceDeleteHeading: root.querySelector('[data-resource-delete-heading]'),
+    resourceDeleteMessage: root.querySelector('[data-resource-delete-message]'),
+    resourceDeleteError: root.querySelector('[data-resource-delete-error]'),
+    resourceDeleteCancel: root.querySelector('[data-resource-delete-cancel]'),
+    resourceDeleteConfirm: root.querySelector('[data-resource-delete-confirm]'),
   };
 
   const state = {
@@ -356,6 +373,7 @@ export function mountApp(root, {
     connectionError: null,
     pendingRemoval: null,
     resourceEditor: createResourceEditorState(),
+    resourceDeletion: createResourceDeleteState(),
   };
 
   const cardElements = new Map();
@@ -389,7 +407,9 @@ export function mountApp(root, {
   function renderResourceEditor() {
     const editor = state.resourceEditor;
     const resource = editor.resource;
-    elements.resourceEditorBackdrop.hidden = !resource;
+    elements.resourceEditorBackdrop.hidden = (
+      !resource || Boolean(state.resourceDeletion.resource)
+    );
     if (!resource) return;
 
     const config = CARD_TYPE_CONFIG[resource.kind];
@@ -402,10 +422,123 @@ export function mountApp(root, {
     field.value = editor.draftTitle;
     field.disabled = editor.saving;
     elements.resourceEditorClose.disabled = editor.saving;
+    elements.resourceEditorDelete.disabled = editor.saving;
     elements.resourceEditorSave.disabled = !canSaveResourceEditor(editor);
     elements.resourceEditorSave.textContent = editor.saving ? 'Saving…' : 'Save';
     elements.resourceEditorError.hidden = !editor.error;
     elements.resourceEditorError.textContent = editor.error?.message ?? '';
+  }
+
+  function resourceDeletionMessage(resource) {
+    const title = `“${resource.title}”`;
+    switch (resource.kind) {
+      case CARD_TYPES.THOUGHT:
+        return `${title} will be permanently deleted from Flying Thoughts, including its connections. This can’t be undone.`;
+      case CARD_TYPES.TASK:
+        return `${title} will be permanently deleted from Majom. Its subtasks and task relationships will also be deleted. This can’t be undone.`;
+      case CARD_TYPES.ACHIEVEMENT:
+        return `${title} will be permanently deleted from Majom. Its requirements will remain, but will no longer belong to this achievement. This can’t be undone.`;
+      case CARD_TYPES.REQUIREMENT:
+        return `${title} will be permanently deleted from Majom. Its gaps will remain, but will no longer belong to this requirement. This can’t be undone.`;
+      case CARD_TYPES.GAP:
+        return `${title} will be permanently deleted from Majom and removed from this canvas. This can’t be undone.`;
+      default:
+        return `${title} will be permanently deleted from Actions and removed from this canvas. This can’t be undone.`;
+    }
+  }
+
+  function renderResourceDeletion() {
+    const deletion = state.resourceDeletion;
+    const resource = deletion.resource;
+    const isDeleting = deletion.phase === RESOURCE_DELETE_PHASES.DELETING;
+    elements.resourceDeleteBackdrop.hidden = !resource;
+    if (!resource) return;
+
+    const config = CARD_TYPE_CONFIG[resource.kind];
+    elements.resourceDeleteHeading.textContent = `Delete ${config.label.toLowerCase()} permanently?`;
+    elements.resourceDeleteMessage.textContent = resourceDeletionMessage(resource);
+    elements.resourceDeleteError.hidden = !deletion.error;
+    elements.resourceDeleteError.textContent = deletion.error?.message ?? '';
+    elements.resourceDeleteCancel.disabled = isDeleting;
+    elements.resourceDeleteConfirm.disabled = !canConfirmResourceDeletion(deletion);
+    elements.resourceDeleteConfirm.textContent = isDeleting
+      ? 'Deleting…'
+      : 'Delete permanently';
+  }
+
+  function openResourceDeletion() {
+    const resource = state.resourceEditor.resource;
+    if (!resource || state.resourceEditor.saving) return;
+    state.resourceDeletion = confirmResourceDeletion(resource);
+    renderResourceEditor();
+    renderResourceDeletion();
+    window.requestAnimationFrame(() => elements.resourceDeleteCancel.focus());
+  }
+
+  function closeResourceDeletion() {
+    if (state.resourceDeletion.phase === RESOURCE_DELETE_PHASES.DELETING) return;
+    state.resourceDeletion = createResourceDeleteState();
+    renderResourceDeletion();
+    renderResourceEditor();
+    window.requestAnimationFrame(() => elements.resourceEditorDelete.focus());
+  }
+
+  function resourceDeletionError(error) {
+    if (error?.status === 409) {
+      return new Error('This item changed elsewhere. Close the dialog and reopen it before deleting.');
+    }
+    const detail = error?.payload?.detail;
+    return new Error(detail || error?.message || 'Couldn’t delete this item.');
+  }
+
+  async function deleteResourcePermanently() {
+    if (!canConfirmResourceDeletion(state.resourceDeletion) || state.saving) return;
+
+    await layoutUpdates.whenIdle();
+    if (!canConfirmResourceDeletion(state.resourceDeletion) || state.saving) return;
+
+    const resource = state.resourceDeletion.resource;
+    state.resourceDeletion = beginResourceDeletion(state.resourceDeletion);
+    state.saving = true;
+    root.dataset.saving = 'true';
+    syncResourceControls();
+    renderResourceDeletion();
+
+    try {
+      const result = await catalogApi.delete({
+        kind: resource.kind,
+        resourceId: resource.resource_id,
+        version: resource.version,
+      });
+      const removedIds = new Set(result.removed_item_ids ?? []);
+      state.canvas.items = state.canvas.items.filter(
+        ({ id }) => !removedIds.has(id),
+      );
+      state.connections = state.connections.filter((connection) => (
+        !removedIds.has(connection.sourceItemId)
+        && !removedIds.has(connection.targetItemId)
+      ));
+      if (result.canvas_revision != null) {
+        state.canvas.revision = result.canvas_revision;
+      }
+      state.resources.delete(resourceKey(resource.kind, resource.resource_id));
+      state.resourceEditor = createResourceEditorState();
+      state.resourceDeletion = createResourceDeleteState();
+      renderResourceEditor();
+      renderResourceDeletion();
+      renderCanvas();
+      showCanvasActionToast('Deleted permanently');
+    } catch (error) {
+      state.resourceDeletion = failResourceDeletion(
+        state.resourceDeletion,
+        resourceDeletionError(error),
+      );
+      renderResourceDeletion();
+    } finally {
+      state.saving = false;
+      delete root.dataset.saving;
+      syncResourceControls();
+    }
   }
 
   function openEditor(resource) {
@@ -1954,9 +2087,17 @@ export function mountApp(root, {
   elements.resourceEditorSave.addEventListener('click', () => {
     void saveResourceEditor();
   });
+  elements.resourceEditorDelete.addEventListener('click', openResourceDeletion);
   elements.resourceEditorClose.addEventListener('click', closeEditor);
   elements.resourceEditorBackdrop.addEventListener('pointerdown', (event) => {
     if (event.target === elements.resourceEditorBackdrop) closeEditor();
+  });
+  elements.resourceDeleteCancel.addEventListener('click', closeResourceDeletion);
+  elements.resourceDeleteConfirm.addEventListener('click', () => {
+    void deleteResourcePermanently();
+  });
+  elements.resourceDeleteBackdrop.addEventListener('pointerdown', (event) => {
+    if (event.target === elements.resourceDeleteBackdrop) closeResourceDeletion();
   });
 
   elements.accountButton.addEventListener('click', () => {
@@ -2001,7 +2142,9 @@ export function mountApp(root, {
     state.connectionError = null;
     state.resources = new Map();
     state.resourceEditor = createResourceEditorState();
+    state.resourceDeletion = createResourceDeleteState();
     renderResourceEditor();
+    renderResourceDeletion();
     hideCanvasActionToast();
     layoutUpdates.clear();
     state.error = null;
@@ -2023,6 +2166,11 @@ export function mountApp(root, {
   });
 
   document.addEventListener('keydown', (event) => {
+    if (state.resourceDeletion.resource && event.key === 'Escape') {
+      event.preventDefault();
+      closeResourceDeletion();
+      return;
+    }
     if (state.resourceEditor.resource && event.key === 'Escape') {
       event.preventDefault();
       closeEditor();

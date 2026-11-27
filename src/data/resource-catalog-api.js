@@ -34,6 +34,16 @@ export function createResourceCatalogApi({ request }) {
       );
     },
 
+    delete({ kind, resourceId, version = null }) {
+      const params = new URLSearchParams();
+      if (version != null) params.set('version', String(version));
+      const query = params.size ? `?${params}` : '';
+      return request(
+        `/catalog/resources/${encodeURIComponent(kind)}/${encodeURIComponent(resourceId)}/${query}`,
+        { method: 'DELETE' },
+      );
+    },
+
     resolve(references) {
       if (!references.length) {
         return Promise.resolve({

@@ -8,6 +8,7 @@ test('keeps the resource editor focused on the title and primary action', () => 
 
   assert.match(view, /aria-label="Title"/);
   assert.match(view, /data-resource-editor-save/);
+  assert.match(view, /data-resource-editor-delete/);
   assert.doesNotMatch(view, /data-resource-editor-source/);
   assert.doesNotMatch(view, /data-resource-editor-cancel/);
   assert.doesNotMatch(view, />TITLE</);

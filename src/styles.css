@@ -1003,7 +1003,6 @@ button:disabled {
 }
 
 .resource-editor__footer {
-  justify-content: flex-end;
   border-top: 1px solid var(--border-subtle);
 }
 
@@ -1026,8 +1025,108 @@ button:disabled {
   background: var(--accent);
 }
 
+.resource-editor__footer .resource-editor__delete {
+  margin-right: auto;
+  border-color: transparent;
+  color: var(--danger);
+  background: transparent;
+}
+
+.resource-editor__footer .resource-editor__delete:hover,
+.resource-editor__footer .resource-editor__delete:focus-visible {
+  outline: 0;
+  background: var(--danger-surface);
+}
+
 .resource-editor__footer button:disabled,
 .resource-editor__header button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.resource-delete-backdrop {
+  position: fixed;
+  z-index: 110;
+  inset: 0;
+  display: grid;
+  padding: 24px;
+  place-items: center;
+  background: color-mix(in srgb, var(--app-background) 62%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.resource-delete-backdrop[hidden] {
+  display: none;
+}
+
+.resource-delete-dialog {
+  width: min(440px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 24px;
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-modal), inset 0 1px 0 var(--inset-highlight);
+}
+
+.resource-delete-dialog__header,
+.resource-delete-dialog__body,
+.resource-delete-dialog__footer {
+  padding: 20px 22px;
+}
+
+.resource-delete-dialog__header {
+  padding-bottom: 8px;
+}
+
+.resource-delete-dialog__header h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 20px;
+}
+
+.resource-delete-dialog__body {
+  padding-top: 8px;
+}
+
+.resource-delete-dialog__body p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.resource-delete-dialog__body .resource-delete-dialog__error {
+  margin-top: 14px;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.resource-delete-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.resource-delete-dialog__footer button {
+  min-width: 96px;
+  height: 42px;
+  padding: 0 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  background: var(--surface);
+  font: inherit;
+  font-weight: 650;
+}
+
+.resource-delete-dialog__footer .resource-delete-dialog__confirm {
+  border-color: transparent;
+  color: #fff;
+  background: var(--danger);
+}
+
+.resource-delete-dialog__footer button:disabled {
   cursor: wait;
   opacity: 0.5;
 }

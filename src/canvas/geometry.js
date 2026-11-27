@@ -5,8 +5,8 @@ export const DEFAULT_CANVAS_CARD_GEOMETRY = Object.freeze({
 
 export const CANVAS_CARD_GEOMETRY = Object.freeze({
   thought: Object.freeze({ width: 400, height: 203 }),
-  achievement: Object.freeze({ width: 300, height: 192 }),
-  task: Object.freeze({ width: 300, height: 192 }),
+  achievement: Object.freeze({ width: 400, height: 192 }),
+  task: Object.freeze({ width: 400, height: 192 }),
 });
 
 export const CANVAS_CARD_WIDTH = DEFAULT_CANVAS_CARD_GEOMETRY.width;
@@ -14,64 +14,74 @@ export const CANVAS_CARD_HEIGHT = DEFAULT_CANVAS_CARD_GEOMETRY.height;
 export const CANVAS_CARD_GAP = 24;
 export const CANVAS_INSERTION_GAP = 8;
 
-function thoughtCardGeometry(title) {
-  if (title === undefined) return CANVAS_CARD_GEOMETRY.thought;
+const CONTENT_DRIVEN_CARD_GEOMETRY = Object.freeze({
+  thought: Object.freeze({
+    characterWidth: 11.2,
+    horizontalPadding: 50,
+    baseHeight: 77,
+    lineHeight: 23 * 1.18,
+    decorateTitle: (title) => `“${title}”`,
+  }),
+  achievement: Object.freeze({
+    characterWidth: 12,
+    horizontalPadding: 48,
+    baseHeight: 79,
+    lineHeight: 26 * 1.08,
+  }),
+  task: Object.freeze({
+    characterWidth: 11.2,
+    horizontalPadding: 48,
+    baseHeight: 79,
+    lineHeight: 24 * 1.08,
+  }),
+});
 
-  const characterCount = Array.from(`“${String(title).trim()}”`).length;
-  const estimatedTextWidth = Math.max(96, characterCount * 11.2);
-  const contentWidth = Math.min(350, estimatedTextWidth);
-  const width = Math.ceil(Math.max(180, contentWidth + 50));
+const CONTENT_DRIVEN_MIN_WIDTH = 180;
+const CONTENT_DRIVEN_MAX_WIDTH = 400;
+const CONTENT_DRIVEN_MIN_HEIGHT = 109;
+const CONTENT_DRIVEN_MAX_LINES = 4;
+
+function contentDrivenCardGeometry(kind, title) {
+  if (title === undefined) return CANVAS_CARD_GEOMETRY[kind];
+
+  const config = CONTENT_DRIVEN_CARD_GEOMETRY[kind];
+  const normalizedTitle = String(title).trim();
+  const measuredTitle = config.decorateTitle
+    ? config.decorateTitle(normalizedTitle)
+    : normalizedTitle;
+  const characterCount = Array.from(measuredTitle).length;
+  const estimatedTextWidth = Math.max(
+    96,
+    characterCount * config.characterWidth,
+  );
+  const maximumContentWidth = (
+    CONTENT_DRIVEN_MAX_WIDTH - config.horizontalPadding
+  );
+  const contentWidth = Math.min(maximumContentWidth, estimatedTextWidth);
+  const width = Math.ceil(Math.max(
+    CONTENT_DRIVEN_MIN_WIDTH,
+    contentWidth + config.horizontalPadding,
+  ));
   const lineCount = Math.min(
-    4,
-    Math.max(1, Math.ceil(estimatedTextWidth / Math.max(1, width - 50))),
+    CONTENT_DRIVEN_MAX_LINES,
+    Math.max(1, Math.ceil(
+      estimatedTextWidth / Math.max(1, width - config.horizontalPadding),
+    )),
   );
 
   return {
     width,
-    height: Math.max(109, Math.ceil(77 + (lineCount * 23 * 1.18))),
-  };
-}
-
-function achievementCardGeometry(title) {
-  if (title === undefined) return CANVAS_CARD_GEOMETRY.achievement;
-
-  const characterCount = Array.from(String(title).trim()).length;
-  const estimatedTextWidth = Math.max(130, characterCount * 12);
-  const contentWidth = Math.min(252, estimatedTextWidth);
-  const width = Math.ceil(Math.max(230, contentWidth + 48));
-  const lineCount = Math.min(
-    4,
-    Math.max(1, Math.ceil(estimatedTextWidth / Math.max(1, width - 48))),
-  );
-
-  return {
-    width,
-    height: Math.max(130, Math.ceil(79 + (lineCount * 26 * 1.08))),
-  };
-}
-
-function taskCardGeometry(title) {
-  if (title === undefined) return CANVAS_CARD_GEOMETRY.task;
-
-  const characterCount = Array.from(String(title).trim()).length;
-  const estimatedTextWidth = Math.max(130, characterCount * 11.2);
-  const contentWidth = Math.min(252, estimatedTextWidth);
-  const width = Math.ceil(Math.max(230, contentWidth + 48));
-  const lineCount = Math.min(
-    4,
-    Math.max(1, Math.ceil(estimatedTextWidth / Math.max(1, width - 48))),
-  );
-
-  return {
-    width,
-    height: Math.max(130, Math.ceil(79 + (lineCount * 24 * 1.08))),
+    height: Math.max(
+      CONTENT_DRIVEN_MIN_HEIGHT,
+      Math.ceil(config.baseHeight + (lineCount * config.lineHeight)),
+    ),
   };
 }
 
 export function canvasCardGeometry(kind, title) {
-  if (kind === 'thought') return thoughtCardGeometry(title);
-  if (kind === 'achievement') return achievementCardGeometry(title);
-  if (kind === 'task') return taskCardGeometry(title);
+  if (kind in CONTENT_DRIVEN_CARD_GEOMETRY) {
+    return contentDrivenCardGeometry(kind, title);
+  }
   return DEFAULT_CANVAS_CARD_GEOMETRY;
 }
 

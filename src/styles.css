@@ -1038,16 +1038,21 @@ button:disabled {
   -webkit-line-clamp: 3;
 }
 
-.canvas-card--thought {
-  position: relative;
-  isolation: isolate;
-  display: grid;
+.canvas-card--thought,
+.canvas-card--achievement,
+.canvas-card--task {
   width: fit-content;
   min-width: 180px;
   max-width: 400px;
   min-height: 109px;
   height: auto;
   max-height: none;
+}
+
+.canvas-card--thought {
+  position: relative;
+  isolation: isolate;
+  display: grid;
   align-content: start;
   gap: 13px;
   padding: 19px 25px 21px;
@@ -1153,12 +1158,6 @@ button:disabled {
   position: relative;
   isolation: isolate;
   display: grid;
-  width: fit-content;
-  min-width: 230px;
-  max-width: 300px;
-  min-height: 130px;
-  height: auto;
-  max-height: none;
   align-content: start;
   align-items: start;
   gap: 14px;
@@ -1268,12 +1267,6 @@ button:disabled {
   position: relative;
   isolation: isolate;
   display: grid;
-  width: fit-content;
-  min-width: 230px;
-  max-width: 300px;
-  min-height: 130px;
-  height: auto;
-  max-height: none;
   align-content: start;
   align-items: start;
   gap: 14px;

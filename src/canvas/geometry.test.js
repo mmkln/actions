@@ -24,8 +24,8 @@ test('uses the maximum thought geometry as a safe fallback', () => {
 
 test('adapts achievement geometry to its title within editorial bounds', () => {
   assert.deepEqual(canvasCardGeometry('achievement', 'Direction'), {
-    width: 230,
-    height: 130,
+    width: 180,
+    height: 109,
   });
 
   assert.deepEqual(
@@ -34,23 +34,23 @@ test('adapts achievement geometry to its title within editorial bounds', () => {
       'Direction confirmed for the first product launch',
     ),
     {
-      width: 300,
-      height: 164,
+      width: 400,
+      height: 136,
     },
   );
 });
 
 test('uses maximum achievement geometry as a safe fallback', () => {
   assert.deepEqual(canvasCardGeometry('achievement'), {
-    width: 300,
+    width: 400,
     height: 192,
   });
 });
 
 test('adapts task geometry to its action title', () => {
   assert.deepEqual(canvasCardGeometry('task', 'Run'), {
-    width: 230,
-    height: 130,
+    width: 180,
+    height: 109,
   });
 
   const longTask = canvasCardGeometry(
@@ -58,14 +58,14 @@ test('adapts task geometry to its action title', () => {
     'Run five customer interviews and summarize all collected evidence',
   );
 
-  assert.equal(longTask.width, 300);
-  assert.ok(longTask.height > 130);
+  assert.equal(longTask.width, 400);
+  assert.ok(longTask.height > 109);
   assert.ok(longTask.height <= 192);
 });
 
 test('uses maximum task geometry as a safe fallback', () => {
   assert.deepEqual(canvasCardGeometry('task'), {
-    width: 300,
+    width: 400,
     height: 192,
   });
 });

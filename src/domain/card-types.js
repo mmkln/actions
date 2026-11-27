@@ -24,7 +24,7 @@ export const CARD_TYPE_CONFIG = Object.freeze({
   [CARD_TYPES.THOUGHT]: Object.freeze({
     label: 'Thought',
     pluralLabel: 'Thoughts',
-    icon: 'spark',
+    icon: 'thought',
     source: 'flying-thoughts',
     sourceLabel: 'Flying Thoughts',
     searchable: true,

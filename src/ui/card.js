@@ -10,13 +10,19 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-export function cardView({ type, title, editable = false }) {
-  if (!isCardType(type)) {
-    throw new TypeError(`Unsupported card type: ${type}`);
-  }
+function thoughtArticleView({ title, config }) {
+  return `
+    <article class="canvas-card canvas-card--thought" data-card-type="thought">
+      <header class="thought-card__header">
+        <span class="thought-card__icon" aria-hidden="true">${icon(config.icon)}</span>
+        <span class="thought-card__label">${escapeHtml(config.label)}</span>
+      </header>
+      <blockquote class="thought-card__quote">“${escapeHtml(title)}”</blockquote>
+    </article>
+  `;
+}
 
-  const config = CARD_TYPE_CONFIG[type];
-
+function regularArticleView({ type, title, config }) {
   return `
     <article class="canvas-card canvas-card--${type}" data-card-type="${type}">
       <div class="canvas-card__icon">${icon(config.icon)}</div>
@@ -24,6 +30,11 @@ export function cardView({ type, title, editable = false }) {
         <p>${escapeHtml(title)}</p>
       </div>
     </article>
+  `;
+}
+
+function cardControlsView({ editable }) {
+  return `
     <button class="connection-button connection-action-button" type="button"></button>
     ${editable ? `
       <button class="canvas-card-edit" type="button" title="Edit item" aria-label="Edit item">
@@ -34,5 +45,18 @@ export function cardView({ type, title, editable = false }) {
       ${icon('minus')}
     </button>
   `;
+}
+
+export function cardView({ type, title, editable = false }) {
+  if (!isCardType(type)) {
+    throw new TypeError(`Unsupported card type: ${type}`);
+  }
+
+  const config = CARD_TYPE_CONFIG[type];
+  const article = type === 'thought'
+    ? thoughtArticleView({ title, config })
+    : regularArticleView({ type, title, config });
+
+  return `${article}${cardControlsView({ editable })}`;
 }
 

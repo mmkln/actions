@@ -36,6 +36,20 @@ test('renders each Skopos resource as a supported canvas card', () => {
   }
 });
 
+test('renders a thought as an editorial quote card', () => {
+  const markup = cardView({
+    type: CARD_TYPES.THOUGHT,
+    title: 'We need evidence.',
+  });
+
+  assert.match(markup, /thought-card__header/);
+  assert.match(markup, /thought-card__label/);
+  assert.match(markup, />Thought</);
+  assert.match(markup, /thought-card__quote/);
+  assert.match(markup, /“We need evidence\.”/);
+  assert.doesNotMatch(markup, /canvas-card__body/);
+});
+
 test('renders a discoverable edit action only for hydrated editable resources', () => {
   const editable = cardView({
     type: CARD_TYPES.THOUGHT,

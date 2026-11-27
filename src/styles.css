@@ -26,6 +26,12 @@
   --orbit: rgba(122, 92, 220, 0.16);
   --thought-surface: #f0ebff;
   --thought-color: #7956e8;
+  --thought-card-paper: #f3ebdd;
+  --thought-card-paper-light: #fffaf0;
+  --thought-card-border: rgba(91, 73, 53, 0.3);
+  --thought-card-border-hover: rgba(91, 73, 53, 0.44);
+  --thought-card-ink: #191510;
+  --thought-card-label: rgba(35, 29, 23, 0.66);
   --goal-surface: #e6f6f1;
   --goal-color: #18846f;
   --task-surface: #eaf1fb;
@@ -517,6 +523,10 @@ button:disabled {
   will-change: transform;
 }
 
+.canvas-card-position[data-card-type="thought"] {
+  max-width: none;
+}
+
 .canvas-card-position.is-dragging {
   z-index: 100 !important;
   cursor: grabbing;
@@ -905,6 +915,122 @@ button:disabled {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+}
+
+.canvas-card--thought {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  width: 400px;
+  height: 140px;
+  max-width: none;
+  max-height: none;
+  align-content: start;
+  gap: 13px;
+  padding: 19px 25px 21px;
+  overflow: hidden;
+  border: 1px solid var(--thought-card-border);
+  border-radius: 17px;
+  color: var(--thought-card-ink);
+  background:
+    radial-gradient(
+      circle at 18% 8%,
+      rgba(255, 255, 255, 0.66),
+      transparent 48%
+    ),
+    linear-gradient(
+      135deg,
+      var(--thought-card-paper-light) 0%,
+      var(--thought-card-paper) 100%
+    );
+  box-shadow:
+    0 16px 36px rgba(6, 4, 10, 0.25),
+    0 3px 8px rgba(6, 4, 10, 0.14),
+    inset 0 1px rgba(255, 255, 255, 0.76);
+  backdrop-filter: none;
+}
+
+.canvas-card--thought::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  opacity: 0.08;
+  pointer-events: none;
+  background-image:
+    repeating-radial-gradient(
+      circle at 35% 25%,
+      rgba(78, 61, 42, 0.12) 0 0.45px,
+      transparent 0.7px 3px
+    );
+  content: "";
+  mix-blend-mode: multiply;
+}
+
+.thought-card__header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+}
+
+.thought-card__icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  color: var(--thought-card-ink);
+}
+
+.thought-card__icon .icon {
+  width: 23px;
+  height: 23px;
+}
+
+.thought-card__label {
+  overflow: hidden;
+  color: var(--thought-card-label);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: 0.085em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.thought-card__quote {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--thought-card-ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-size: 29px;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.canvas-card--thought:hover {
+  border-color: var(--thought-card-border-hover);
+  box-shadow:
+    0 19px 44px rgba(6, 4, 10, 0.3),
+    0 4px 10px rgba(6, 4, 10, 0.15),
+    inset 0 1px rgba(255, 255, 255, 0.8);
+}
+
+.canvas-card-position.is-dragging .canvas-card--thought {
+  border-color: rgba(91, 73, 53, 0.48);
+  box-shadow:
+    0 25px 56px rgba(6, 4, 10, 0.35),
+    0 6px 15px rgba(6, 4, 10, 0.17),
+    inset 0 1px rgba(255, 255, 255, 0.8);
+  transition: none;
 }
 
 .canvas__empty {

@@ -8,9 +8,8 @@ import {
   normalizeConnection,
 } from './canvas/connections.js';
 import {
-  CANVAS_CARD_HEIGHT,
-  CANVAS_CARD_WIDTH,
   CANVAS_INSERTION_GAP,
+  canvasCardGeometry,
 } from './canvas/geometry.js';
 import { syncCanvasGrid } from './canvas/grid-projection.js';
 import { createLayoutUpdateQueue } from './canvas/layout-update-queue.js';
@@ -444,11 +443,12 @@ export function mountApp(root, {
 
     const boxes = items.map((item) => {
       const card = cardElements.get(item.id)?.querySelector('.canvas-card');
+      const geometry = canvasCardGeometry(item.kind);
       return {
         x: item.x,
         y: item.y,
-        width: card?.offsetWidth || CANVAS_CARD_WIDTH,
-        height: card?.offsetHeight || CANVAS_CARD_HEIGHT,
+        width: card?.offsetWidth || geometry.width,
+        height: card?.offsetHeight || geometry.height,
       };
     });
     const left = Math.min(...boxes.map(({ x }) => x));
@@ -500,11 +500,12 @@ export function mountApp(root, {
       const item = itemById(itemId);
       const card = cardElements.get(itemId)?.querySelector('.canvas-card');
       if (!item || !card) return null;
+      const geometry = canvasCardGeometry(item.kind);
       return {
         x: item.x,
         y: item.y,
-        width: card.offsetWidth || CANVAS_CARD_WIDTH,
-        height: card.offsetHeight || CANVAS_CARD_HEIGHT,
+        width: card.offsetWidth || geometry.width,
+        height: card.offsetHeight || geometry.height,
       };
     },
   });
@@ -712,23 +713,27 @@ export function mountApp(root, {
 
   function planResourceInsertion(resource) {
     const bounds = elements.canvasViewport.getBoundingClientRect();
-    const obstacles = (state.canvas?.items ?? []).map((item) => ({
+    const candidateGeometry = canvasCardGeometry(resource.kind);
+    const obstacles = (state.canvas?.items ?? []).map((item) => {
+      const geometry = canvasCardGeometry(item.kind);
+      return {
         id: item.id,
         x: item.x,
         y: item.y,
-        width: CANVAS_CARD_WIDTH,
-        height: CANVAS_CARD_HEIGHT,
-      }));
+        width: geometry.width,
+        height: geometry.height,
+      };
+    });
     const desired = viewportController.clientToWorld({
-      x: bounds.left + (bounds.width / 2) - (CANVAS_CARD_WIDTH / 2),
-      y: bounds.top + (bounds.height / 2) - (CANVAS_CARD_HEIGHT / 2),
+      x: bounds.left + (bounds.width / 2) - (candidateGeometry.width / 2),
+      y: bounds.top + (bounds.height / 2) - (candidateGeometry.height / 2),
     });
     const insertion = planCanvasInsertion({
       candidate: {
         id: resourceKey(resource.kind, resource.resource_id),
         ...desired,
-        width: CANVAS_CARD_WIDTH,
-        height: CANVAS_CARD_HEIGHT,
+        width: candidateGeometry.width,
+        height: candidateGeometry.height,
       },
       obstacles,
       gap: CANVAS_INSERTION_GAP,
@@ -1586,6 +1591,7 @@ export function mountApp(root, {
       ) ? 'Loading…' : resource.title;
       const position = document.createElement('div');
       position.className = 'canvas-card-position';
+      position.dataset.cardType = item.kind;
       position.dataset.itemId = item.id;
       position.style.zIndex = '2';
       position.innerHTML = cardView({

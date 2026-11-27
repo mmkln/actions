@@ -1,4 +1,5 @@
 import {
+  CARD_TYPES,
   CARD_TYPE_CONFIG,
   CREATABLE_CARD_TYPES,
 } from './card-types.js';
@@ -25,4 +26,10 @@ export function getResourceCreationOptions({
       canCreate: !tooLong,
     };
   });
+}
+
+export function getQuickActionProposal({ title }) {
+  return getResourceCreationOptions({ title }).find(
+    ({ kind }) => kind === CARD_TYPES.ACTION,
+  ) ?? null;
 }

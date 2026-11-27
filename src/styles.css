@@ -44,6 +44,8 @@
   --goal-color: #347564;
   --task-surface: #fae7e1;
   --task-color: #ad432f;
+  --action-surface: #eee7f7;
+  --action-color: #704aa6;
   --achievement-surface: #e7f1e2;
   --achievement-color: #3d7044;
   --requirement-surface: #e8edf7;
@@ -103,6 +105,8 @@
   --goal-color: #86c5b0;
   --task-surface: rgba(212, 96, 75, 0.16);
   --task-color: #f08c76;
+  --action-surface: rgba(182, 154, 220, 0.16);
+  --action-color: #c4a9e7;
   --achievement-surface: rgba(105, 157, 100, 0.17);
   --achievement-color: #9ac98e;
   --requirement-surface: rgba(90, 126, 174, 0.18);
@@ -903,6 +907,11 @@ button:disabled {
 .canvas-card--goal .canvas-card__icon {
   color: var(--goal-color);
   background: var(--goal-surface);
+}
+
+.canvas-card--action .canvas-card__icon {
+  color: var(--action-color);
+  background: var(--action-surface);
 }
 
 .canvas-card--task .canvas-card__icon {
@@ -1976,6 +1985,11 @@ button:disabled {
   background: var(--task-surface);
 }
 
+.resource-create-panel__icon.is-action {
+  color: var(--action-color);
+  background: var(--action-surface);
+}
+
 .resource-create-panel__icon .icon {
   width: 18px;
   height: 18px;
@@ -2160,6 +2174,11 @@ button:disabled {
 .resource-search-popover__result-icon.is-task {
   color: var(--task-color);
   background: var(--task-surface);
+}
+
+.resource-search-popover__result-icon.is-action {
+  color: var(--action-color);
+  background: var(--action-surface);
 }
 
 .resource-search-popover__result-icon.is-achievement {

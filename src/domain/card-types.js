@@ -1,4 +1,5 @@
 export const CARD_TYPES = Object.freeze({
+  ACTION: 'action',
   THOUGHT: 'thought',
   GOAL: 'goal',
   TASK: 'task',
@@ -8,6 +9,19 @@ export const CARD_TYPES = Object.freeze({
 });
 
 export const CARD_TYPE_CONFIG = Object.freeze({
+  [CARD_TYPES.ACTION]: Object.freeze({
+    label: 'Action',
+    pluralLabel: 'Actions',
+    icon: 'action',
+    source: 'actions',
+    sourceLabel: 'Actions',
+    searchable: true,
+    creatable: true,
+    editable: true,
+    multiline: false,
+    parentKind: null,
+    maximumTitleLength: 500,
+  }),
   [CARD_TYPES.TASK]: Object.freeze({
     label: 'Task',
     pluralLabel: 'Tasks',

@@ -27,6 +27,7 @@ import {
 } from './domain/card-types.js';
 import {
   getResourceCreationOptions,
+  getQuickActionProposal,
 } from './domain/resource-creation.js';
 import {
   RESOURCE_PALETTE_SCREENS,
@@ -159,7 +160,7 @@ function shellView() {
               <span class="resource-palette__create-entry-icon" aria-hidden="true">${icon('plus')}</span>
               <span>
                 <strong data-resource-create-start-title></strong>
-                <small>Choose Task, Thought, or a Skopos item</small>
+                <small>Enter creates an Action · click for other types</small>
               </span>
               <span class="resource-palette__chevron" aria-hidden="true">›</span>
             </button>
@@ -182,6 +183,10 @@ function shellView() {
               <section class="resource-kind-section" aria-labelledby="resource-kind-quick-heading">
                 <h3 id="resource-kind-quick-heading">QUICK ITEMS</h3>
                 <div class="resource-kind-grid is-quick">
+                  <button class="resource-kind-card" type="button" data-resource-create-kind="action">
+                    <span class="resource-search-popover__result-icon is-action">${icon('action')}</span>
+                    <span><strong>Action</strong><small>Capture now · structure later</small></span><b>›</b>
+                  </button>
                   <button class="resource-kind-card" type="button" data-resource-create-kind="task">
                     <span class="resource-search-popover__result-icon is-task">${icon('check')}</span>
                     <span><strong>Task</strong><small>A standalone action in Majom</small></span><b>›</b>
@@ -1614,6 +1619,21 @@ export function mountApp(root, {
     }, 'create');
   }
 
+  function createQuickActionAndPlace() {
+    const proposal = getQuickActionProposal({
+      title: state.resourcePalette.draft.title,
+    });
+    if (!proposal?.canCreate) return Promise.resolve();
+
+    return placeResource(async () => {
+      const payload = await catalogApi.create({
+        kind: proposal.kind,
+        title: proposal.title,
+      });
+      return payload.resource;
+    }, 'create');
+  }
+
   function hideCanvasActionToast() {
     window.clearTimeout(removalTimer);
     removalTimer = null;
@@ -1924,9 +1944,7 @@ export function mountApp(root, {
       event.preventDefault();
       const resource = selectedResource();
       if (resource) void addResource(resource);
-      else if (!elements.resourceCreateStart.hidden) {
-        elements.resourceCreateStart.click();
-      }
+      else void createQuickActionAndPlace();
       return;
     }
     if (event.key === 'Escape') {

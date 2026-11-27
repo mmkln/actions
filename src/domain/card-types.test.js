@@ -10,6 +10,7 @@ import {
 } from './card-types.js';
 
 test('recognizes every supported canvas card type', () => {
+  assert.equal(isCardType(CARD_TYPES.ACTION), true);
   assert.equal(isCardType(CARD_TYPES.THOUGHT), true);
   assert.equal(isCardType(CARD_TYPES.GOAL), true);
   assert.equal(isCardType(CARD_TYPES.TASK), true);
@@ -21,6 +22,7 @@ test('recognizes every supported canvas card type', () => {
 
 test('derives searchable, creatable, and external types from one registry', () => {
   assert.deepEqual(SEARCHABLE_CARD_TYPES, [
+    CARD_TYPES.ACTION,
     CARD_TYPES.TASK,
     CARD_TYPES.THOUGHT,
     CARD_TYPES.ACHIEVEMENT,
@@ -28,12 +30,14 @@ test('derives searchable, creatable, and external types from one registry', () =
     CARD_TYPES.GAP,
   ]);
   assert.deepEqual(CREATABLE_CARD_TYPES, [
+    CARD_TYPES.ACTION,
     CARD_TYPES.TASK,
     CARD_TYPES.THOUGHT,
     CARD_TYPES.ACHIEVEMENT,
     CARD_TYPES.REQUIREMENT,
     CARD_TYPES.GAP,
   ]);
+  assert.equal(isExternalCardType(CARD_TYPES.ACTION), true);
   assert.equal(isExternalCardType(CARD_TYPES.ACHIEVEMENT), true);
   assert.equal(isExternalCardType(CARD_TYPES.REQUIREMENT), true);
   assert.equal(isExternalCardType(CARD_TYPES.GAP), true);

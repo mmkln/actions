@@ -33,10 +33,14 @@ import {
   RESOURCE_PALETTE_SCREENS,
   beginResourceCreation,
   canSubmitResourceDraft,
+  changeResourceQuery,
   chooseResourceKind,
   chooseResourceParent,
   createResourcePaletteState,
+  failResourceSearch,
+  finishResourceSearch,
   returnFromResourceCreation,
+  startResourceSearch,
 } from './domain/resource-palette-state.js';
 import { cardView } from './ui/card.js';
 import {
@@ -294,10 +298,6 @@ export function mountApp(root, {
     user: null,
     resources: new Map(),
     resourcesLoading: false,
-    searchResults: [],
-    searchLoading: false,
-    searchError: null,
-    unavailableSources: [],
     selectedResourceKey: null,
     searchOpen: false,
     resourcePalette: createResourcePaletteState(),
@@ -312,7 +312,7 @@ export function mountApp(root, {
   const cardElements = new Map();
   let viewportController = null;
   let searchTimer = null;
-  let searchGeneration = 0;
+  let searchAbortController = null;
   let parentSearchTimer = null;
   let parentSearchGeneration = 0;
   let hydrationGeneration = 0;
@@ -779,7 +779,8 @@ export function mountApp(root, {
   }
 
   function selectFirstAvailableResource() {
-    const selectedIsAvailable = state.searchResults.some(
+    const results = state.resourcePalette.search.results;
+    const selectedIsAvailable = results.some(
       (resource) => (
         resourceKey(resource.kind, resource.resource_id)
           === state.selectedResourceKey
@@ -787,7 +788,7 @@ export function mountApp(root, {
       ),
     );
     if (!selectedIsAvailable) {
-      const firstAvailable = state.searchResults.find(
+      const firstAvailable = results.find(
         (resource) => !resourceIsOnCanvas(resource),
       );
       state.selectedResourceKey = firstAvailable
@@ -850,22 +851,20 @@ export function mountApp(root, {
 
   function resourceCreationOptions() {
     return getResourceCreationOptions({
-      query: elements.resourceSearch.value,
-      results: state.searchResults,
-      unavailableSources: state.unavailableSources,
+      title: state.resourcePalette.draft.title,
     });
   }
 
   function selectedResourceCreationOption() {
     return resourceCreationOptions().find(
-      ({ kind }) => kind === state.resourcePalette.selectedKind,
+      ({ kind }) => kind === state.resourcePalette.draft.selectedKind,
     ) ?? null;
   }
 
   function renderResourceCreation() {
     const palette = state.resourcePalette;
     const options = resourceCreationOptions();
-    const query = elements.resourceSearch.value.trim();
+    const query = palette.draft.title.trim();
     const proposal = selectedResourceCreationOption();
     const hasCreatableType = options.some(({ canCreate }) => canCreate);
 
@@ -883,8 +882,6 @@ export function mountApp(root, {
     elements.resourceCreateStart.hidden = !(
       palette.screen === RESOURCE_PALETTE_SCREENS.SEARCH
       && query
-      && !state.searchLoading
-      && !state.searchError
       && hasCreatableType
     );
     elements.resourceCreateStartTitle.textContent = `Create “${query}”…`;
@@ -893,13 +890,9 @@ export function mountApp(root, {
     elements.resourceCreateKindButtons.forEach((button) => {
       const option = options.find(({ kind }) => kind === button.dataset.resourceCreateKind);
       button.disabled = !option || !option.canCreate;
-      button.title = option?.sourceUnavailable
-        ? `${CARD_TYPE_CONFIG[option.kind].sourceLabel} is temporarily unavailable.`
-        : option?.tooLong
-          ? `Maximum ${option.maximumLength} characters.`
-          : option?.duplicate
-            ? `This ${CARD_TYPE_CONFIG[option.kind].label.toLowerCase()} already exists.`
-            : '';
+      button.title = option?.tooLong
+        ? `Maximum ${option.maximumLength} characters.`
+        : '';
     });
 
     if (palette.screen !== RESOURCE_PALETTE_SCREENS.CONFIGURE || !proposal) return;
@@ -927,8 +920,8 @@ export function mountApp(root, {
           button.type = 'button';
           button.className = 'resource-palette__parent-result';
           const selected = (
-            palette.selectedParent?.kind === resource.kind
-            && palette.selectedParent?.resource_id === resource.resource_id
+            palette.draft.selectedParent?.kind === resource.kind
+            && palette.draft.selectedParent?.resource_id === resource.resource_id
           );
           button.classList.toggle('is-selected', selected);
           button.setAttribute('role', 'option');
@@ -962,13 +955,9 @@ export function mountApp(root, {
     elements.resourceCreateAction.textContent = (
       state.resourceAction === 'create' ? 'Creating…' : 'Create & Place'
     );
-    let note = '';
-    if (proposal.tooLong) {
+    let note = palette.actionError?.message ?? '';
+    if (!note && proposal.tooLong) {
       note = `${proposalConfig.pluralLabel} can contain up to ${proposal.maximumLength} characters.`;
-    } else if (proposal.sourceUnavailable) {
-      note = `${proposalConfig.sourceLabel} is temporarily unavailable.`;
-    } else if (proposal.duplicate) {
-      note = `This ${proposalConfig.label.toLowerCase()} already exists.`;
     }
     elements.resourceCreateNote.textContent = note;
     elements.resourceCreateNote.hidden = !note;
@@ -996,26 +985,27 @@ export function mountApp(root, {
       return;
     }
 
-    if (state.searchLoading) {
+    const search = state.resourcePalette.search;
+    if (state.resourcePalette.actionError) {
+      elements.resourceSearchStatus.textContent = state.resourcePalette.actionError.message;
+    } else if (search.status === 'debouncing' || search.status === 'loading') {
       elements.resourceSearchStatus.textContent = 'Searching…';
-    } else if (state.searchError) {
-      elements.resourceSearchStatus.textContent = state.searchError.message;
+    } else if (search.status === 'error') {
+      elements.resourceSearchStatus.textContent = search.error.message;
     } else {
       selectFirstAvailableResource();
-      const creationOptions = resourceCreationOptions();
-      const hasCreationCandidate = creationOptions.some(({ canCreate }) => canCreate);
-      elements.resourceSearchStatus.textContent = state.unavailableSources.length
+      elements.resourceSearchStatus.textContent = search.unavailableSources.length
         ? 'Some sources are temporarily unavailable.'
-        : !state.searchResults.length && !hasCreationCandidate
+        : !search.results.length
           ? 'No matching resources.'
           : '';
     }
 
-    if (!state.searchLoading) {
+    if (search.status === 'success') {
       const fragment = document.createDocumentFragment();
       SEARCHABLE_CARD_TYPES.forEach((kind) => {
         const config = CARD_TYPE_CONFIG[kind];
-        const resources = state.searchResults.filter(
+        const resources = search.results.filter(
           (resource) => resource.kind === kind,
         );
         if (!resources.length) return;
@@ -1035,7 +1025,7 @@ export function mountApp(root, {
 
   async function searchResourceParents() {
     const parentKind = CARD_TYPE_CONFIG[
-      state.resourcePalette.selectedKind
+      state.resourcePalette.draft.selectedKind
     ]?.parentKind;
     if (!parentKind) return;
 
@@ -1080,45 +1070,70 @@ export function mountApp(root, {
     state.resourcePalette = {
       ...state.resourcePalette,
       parentQuery: elements.resourceParentSearch.value,
-      selectedParent: null,
+      draft: {
+        ...state.resourcePalette.draft,
+        selectedParent: null,
+      },
     };
     renderResourceSearch();
     parentSearchTimer = window.setTimeout(searchResourceParents, 180);
   }
 
-  async function searchResources() {
-    const generation = ++searchGeneration;
-    state.searchLoading = true;
-    state.searchError = null;
-    state.unavailableSources = [];
+  async function searchResources({ requestId, query, signal }) {
+    if (state.resourcePalette.search.requestId !== requestId) return;
+    state.resourcePalette = startResourceSearch(
+      state.resourcePalette,
+      requestId,
+    );
     renderResourceSearch();
     try {
       const payload = await catalogApi.search({
-        query: elements.resourceSearch.value.trim(),
+        query,
+        signal,
       });
-      if (generation !== searchGeneration) return;
-      state.searchResults = payload.results ?? [];
-      state.unavailableSources = payload.unavailable_sources ?? [];
+      if (state.resourcePalette.search.requestId !== requestId) return;
+      state.resourcePalette = finishResourceSearch(
+        state.resourcePalette,
+        requestId,
+        payload,
+      );
       selectFirstAvailableResource();
     } catch (error) {
-      if (generation !== searchGeneration) return;
-      state.searchResults = [];
-      state.unavailableSources = error.payload?.unavailable_sources ?? [];
-      state.searchError = error;
-    } finally {
-      if (generation === searchGeneration) {
-        state.searchLoading = false;
-        renderResourceSearch();
-      }
+      if (signal.aborted || error.name === 'AbortError') return;
+      if (state.resourcePalette.search.requestId !== requestId) return;
+      state.resourcePalette = failResourceSearch(
+        state.resourcePalette,
+        requestId,
+        error,
+      );
     }
+    renderResourceSearch();
   }
 
-  function scheduleResourceSearch() {
+  function scheduleResourceSearch({ immediate = false } = {}) {
     window.clearTimeout(searchTimer);
+    searchAbortController?.abort();
     state.searchOpen = true;
     state.selectedResourceKey = null;
+    state.resourcePalette = changeResourceQuery(
+      state.resourcePalette,
+      elements.resourceSearch.value,
+    );
+    const requestId = state.resourcePalette.search.requestId;
+    const query = state.resourcePalette.draft.title.trim();
+    const controller = new AbortController();
+    searchAbortController = controller;
     renderResourceSearch();
-    searchTimer = window.setTimeout(searchResources, 180);
+    const run = () => searchResources({
+      requestId,
+      query,
+      signal: controller.signal,
+    });
+    if (immediate) {
+      void run();
+      return;
+    }
+    searchTimer = window.setTimeout(() => void run(), 180);
   }
 
   function openResourceSearch() {
@@ -1126,25 +1141,23 @@ export function mountApp(root, {
     closeAccountMenu();
     state.resourcePalette = createResourcePaletteState();
     state.searchOpen = true;
-    state.searchError = null;
-    renderResourceSearch();
-    if (!state.searchLoading) void searchResources();
+    scheduleResourceSearch({ immediate: true });
     window.requestAnimationFrame(() => elements.resourceSearch.focus());
   }
 
   function closeResourceSearch() {
     state.searchOpen = false;
-    state.searchLoading = false;
-    searchGeneration += 1;
     parentSearchGeneration += 1;
     window.clearTimeout(searchTimer);
     window.clearTimeout(parentSearchTimer);
+    searchAbortController?.abort();
+    searchAbortController = null;
     state.resourcePalette = createResourcePaletteState();
     renderResourceSearch();
   }
 
   function moveResourceSelection(direction) {
-    const available = state.searchResults.filter(
+    const available = state.resourcePalette.search.results.filter(
       (resource) => !resourceIsOnCanvas(resource),
     );
     if (!available.length) return;
@@ -1165,7 +1178,7 @@ export function mountApp(root, {
   }
 
   function selectedResource() {
-    return state.searchResults.find(
+    return state.resourcePalette.search.results.find(
       (resource) => (
         resourceKey(resource.kind, resource.resource_id)
           === state.selectedResourceKey
@@ -1190,7 +1203,10 @@ export function mountApp(root, {
 
     state.saving = true;
     state.resourceAction = operation;
-    state.searchError = null;
+    state.resourcePalette = {
+      ...state.resourcePalette,
+      actionError: null,
+    };
     root.dataset.saving = 'true';
     syncResourceControls();
     renderResourceSearch();
@@ -1225,24 +1241,40 @@ export function mountApp(root, {
       );
       renderCanvas();
       elements.resourceSearch.value = '';
-      state.searchResults = [];
       state.selectedResourceKey = null;
       closeResourceSearch();
     } catch (error) {
       if (resource && operation === 'create') {
         const key = resourceKey(resource.kind, resource.resource_id);
-        state.searchResults = [
-          resource,
-          ...state.searchResults.filter((item) => (
-            resourceKey(item.kind, item.resource_id) !== key
-          )),
-        ];
+        state.resourcePalette = {
+          ...state.resourcePalette,
+          screen: RESOURCE_PALETTE_SCREENS.SEARCH,
+          draft: {
+            ...state.resourcePalette.draft,
+            selectedKind: null,
+            selectedParent: null,
+          },
+          search: {
+            ...state.resourcePalette.search,
+            status: 'success',
+            results: [
+              resource,
+              ...state.resourcePalette.search.results.filter((item) => (
+                resourceKey(item.kind, item.resource_id) !== key
+              )),
+            ],
+            error: null,
+          },
+          actionError: new Error(
+            `Created in ${resource.source === 'majom' ? 'Majom' : 'Flying Thoughts'}, but couldn’t place it on the canvas. Try again.`,
+          ),
+        };
         state.selectedResourceKey = key;
-        state.searchError = new Error(
-          `Created in ${resource.source === 'majom' ? 'Majom' : 'Flying Thoughts'}, but couldn’t place it on the canvas. Try again.`,
-        );
       } else {
-        state.searchError = error;
+        state.resourcePalette = {
+          ...state.resourcePalette,
+          actionError: error,
+        };
       }
     } finally {
       state.saving = false;
@@ -1265,7 +1297,7 @@ export function mountApp(root, {
       || !canSubmitResourceDraft(state.resourcePalette, CARD_TYPE_CONFIG)
     ) return Promise.resolve();
 
-    const parentResource = state.resourcePalette.selectedParent;
+    const parentResource = state.resourcePalette.draft.selectedParent;
     const parent = parentResource
       ? {
           kind: parentResource.kind,
@@ -1547,7 +1579,7 @@ export function mountApp(root, {
     );
     renderResourceSearch();
     const parentKind = CARD_TYPE_CONFIG[
-      state.resourcePalette.selectedKind
+      state.resourcePalette.draft.selectedKind
     ].parentKind;
     if (parentKind) {
       void searchResourceParents();

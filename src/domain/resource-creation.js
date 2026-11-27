@@ -3,33 +3,17 @@ import {
   CREATABLE_CARD_TYPES,
 } from './card-types.js';
 
-export function normalizeResourceTitle(value) {
-  return String(value ?? '')
-    .normalize('NFKC')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLocaleLowerCase();
-}
-
 export function getResourceCreationOptions({
-  query,
-  results = [],
-  unavailableSources = [],
+  title: rawTitle,
 }) {
-  const title = String(query ?? '').trim();
+  const title = String(rawTitle ?? '').trim();
   if (!title) return [];
 
-  const normalizedTitle = normalizeResourceTitle(title);
   return CREATABLE_CARD_TYPES.map((kind) => {
     const config = CARD_TYPE_CONFIG[kind];
     const source = config.source;
     const maximumLength = config.maximumTitleLength;
-    const duplicate = !config.parentKind && results.some((resource) => (
-      resource.kind === kind
-      && normalizeResourceTitle(resource.title) === normalizedTitle
-    ));
     const tooLong = title.length > maximumLength;
-    const sourceUnavailable = unavailableSources.includes(source);
 
     return {
       kind,
@@ -37,10 +21,8 @@ export function getResourceCreationOptions({
       source,
       parentKind: config.parentKind,
       maximumLength,
-      duplicate,
       tooLong,
-      sourceUnavailable,
-      canCreate: !duplicate && !tooLong && !sourceUnavailable,
+      canCreate: !tooLong,
     };
   });
 }

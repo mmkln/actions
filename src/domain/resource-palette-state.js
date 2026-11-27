@@ -7,12 +7,82 @@ export const RESOURCE_PALETTE_SCREENS = Object.freeze({
 export function createResourcePaletteState() {
   return {
     screen: RESOURCE_PALETTE_SCREENS.SEARCH,
-    selectedKind: null,
-    selectedParent: null,
+    draft: {
+      title: '',
+      selectedKind: null,
+      selectedParent: null,
+    },
+    search: {
+      requestId: 0,
+      status: 'idle',
+      results: [],
+      unavailableSources: [],
+      error: null,
+    },
     parentQuery: '',
     parentResults: [],
     parentLoading: false,
     parentError: null,
+    actionError: null,
+  };
+}
+
+export function changeResourceQuery(state, title) {
+  return {
+    ...state,
+    screen: RESOURCE_PALETTE_SCREENS.SEARCH,
+    draft: {
+      title,
+      selectedKind: null,
+      selectedParent: null,
+    },
+    search: {
+      requestId: state.search.requestId + 1,
+      status: 'debouncing',
+      results: [],
+      unavailableSources: [],
+      error: null,
+    },
+    actionError: null,
+  };
+}
+
+export function startResourceSearch(state, requestId) {
+  if (state.search.requestId !== requestId) return state;
+  return {
+    ...state,
+    search: {
+      ...state.search,
+      status: 'loading',
+    },
+  };
+}
+
+export function finishResourceSearch(state, requestId, payload) {
+  if (state.search.requestId !== requestId) return state;
+  return {
+    ...state,
+    search: {
+      ...state.search,
+      status: 'success',
+      results: payload.results ?? [],
+      unavailableSources: payload.unavailable_sources ?? [],
+      error: null,
+    },
+  };
+}
+
+export function failResourceSearch(state, requestId, error) {
+  if (state.search.requestId !== requestId) return state;
+  return {
+    ...state,
+    search: {
+      ...state.search,
+      status: 'error',
+      results: [],
+      unavailableSources: error.payload?.unavailable_sources ?? [],
+      error,
+    },
   };
 }
 
@@ -20,12 +90,16 @@ export function beginResourceCreation(state) {
   return {
     ...state,
     screen: RESOURCE_PALETTE_SCREENS.CHOOSE_TYPE,
-    selectedKind: null,
-    selectedParent: null,
+    draft: {
+      ...state.draft,
+      selectedKind: null,
+      selectedParent: null,
+    },
     parentQuery: '',
     parentResults: [],
     parentLoading: false,
     parentError: null,
+    actionError: null,
   };
 }
 
@@ -33,36 +107,62 @@ export function chooseResourceKind(state, kind) {
   return {
     ...state,
     screen: RESOURCE_PALETTE_SCREENS.CONFIGURE,
-    selectedKind: kind,
-    selectedParent: null,
+    draft: {
+      ...state.draft,
+      selectedKind: kind,
+      selectedParent: null,
+    },
     parentQuery: '',
     parentResults: [],
     parentLoading: false,
     parentError: null,
+    actionError: null,
   };
 }
 
 export function chooseResourceParent(state, parent) {
   return {
     ...state,
-    selectedParent: parent,
+    draft: {
+      ...state.draft,
+      selectedParent: parent,
+    },
   };
 }
 
 export function returnFromResourceCreation(state) {
   if (state.screen === RESOURCE_PALETTE_SCREENS.CONFIGURE) {
     return {
-      ...createResourcePaletteState(),
+      ...state,
       screen: RESOURCE_PALETTE_SCREENS.CHOOSE_TYPE,
+      draft: {
+        ...state.draft,
+        selectedKind: null,
+        selectedParent: null,
+      },
+      parentQuery: '',
+      parentResults: [],
+      parentLoading: false,
+      parentError: null,
+      actionError: null,
     };
   }
-  return createResourcePaletteState();
+  return {
+    ...state,
+    screen: RESOURCE_PALETTE_SCREENS.SEARCH,
+    draft: {
+      ...state.draft,
+      selectedKind: null,
+      selectedParent: null,
+    },
+    actionError: null,
+  };
 }
 
 export function canSubmitResourceDraft(state, cardTypeConfig) {
   if (state.screen !== RESOURCE_PALETTE_SCREENS.CONFIGURE) return false;
-  if (!state.selectedKind) return false;
-  const parentKind = cardTypeConfig[state.selectedKind]?.parentKind;
+  if (!state.draft.selectedKind) return false;
+  const parentKind = cardTypeConfig[state.draft.selectedKind]?.parentKind;
   if (!parentKind) return true;
-  return state.selectedParent?.kind === parentKind;
+  return state.draft.selectedParent?.kind === parentKind;
 }

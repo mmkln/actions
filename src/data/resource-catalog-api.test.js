@@ -41,6 +41,21 @@ test('filters catalog searches to requested resource kinds', async () => {
   );
 });
 
+test('forwards an abort signal to catalog search', async () => {
+  let captured;
+  const controller = new AbortController();
+  const api = createResourceCatalogApi({
+    request(path, options) {
+      captured = { path, options };
+      return Promise.resolve({ results: [] });
+    },
+  });
+
+  await api.search({ query: 'launch', signal: controller.signal });
+
+  assert.equal(captured.options.signal, controller.signal);
+});
+
 test('resolves mixed resource references with one batch request', async () => {
   let captured;
   const references = [

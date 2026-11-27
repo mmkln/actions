@@ -10,7 +10,7 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-export function cardView({ type, title }) {
+export function cardView({ type, title, editable = false }) {
   if (!isCardType(type)) {
     throw new TypeError(`Unsupported card type: ${type}`);
   }
@@ -25,6 +25,11 @@ export function cardView({ type, title }) {
       </div>
     </article>
     <button class="connection-button connection-action-button" type="button"></button>
+    ${editable ? `
+      <button class="canvas-card-edit" type="button" title="Edit item" aria-label="Edit item">
+        ${icon('edit')}
+      </button>
+    ` : ''}
     <button class="canvas-card-remove" type="button" title="Remove from this Board" aria-label="Remove from this Board">
       ${icon('minus')}
     </button>

@@ -42,12 +42,21 @@ import {
   returnFromResourceCreation,
   startResourceSearch,
 } from './domain/resource-palette-state.js';
+import {
+  beginResourceEditorSave,
+  canSaveResourceEditor,
+  changeResourceEditorTitle,
+  createResourceEditorState,
+  failResourceEditorSave,
+  openResourceEditor,
+} from './domain/resource-editor-state.js';
 import { cardView } from './ui/card.js';
 import {
   getConnectionActionState,
   renderConnectionActionButton,
 } from './ui/connection-action-button.js';
 import { icon } from './ui/icons.js';
+import { resourceEditorView } from './ui/resource-editor.js';
 
 function shellView() {
   return `
@@ -127,6 +136,8 @@ function shellView() {
         <span data-canvas-action-message>Removed from canvas</span>
         <button type="button" data-canvas-action-undo>Undo</button>
       </div>
+
+      ${resourceEditorView()}
 
       <div class="resource-palette-backdrop" data-resource-palette-backdrop hidden></div>
       <div class="composer" role="search" aria-label="Search and add resources" data-composer data-screen="search">
@@ -287,6 +298,15 @@ export function mountApp(root, {
     canvasActionToast: root.querySelector('[data-canvas-action-toast]'),
     canvasActionMessage: root.querySelector('[data-canvas-action-message]'),
     canvasActionUndo: root.querySelector('[data-canvas-action-undo]'),
+    resourceEditorBackdrop: root.querySelector('[data-resource-editor-backdrop]'),
+    resourceEditorHeading: root.querySelector('[data-resource-editor-heading]'),
+    resourceEditorSource: root.querySelector('[data-resource-editor-source]'),
+    resourceEditorClose: root.querySelector('[data-resource-editor-close]'),
+    resourceEditorInput: root.querySelector('[data-resource-editor-input]'),
+    resourceEditorTextarea: root.querySelector('[data-resource-editor-textarea]'),
+    resourceEditorError: root.querySelector('[data-resource-editor-error]'),
+    resourceEditorCancel: root.querySelector('[data-resource-editor-cancel]'),
+    resourceEditorSave: root.querySelector('[data-resource-editor-save]'),
   };
 
   const state = {
@@ -307,6 +327,7 @@ export function mountApp(root, {
     connectionSaving: false,
     connectionError: null,
     pendingRemoval: null,
+    resourceEditor: createResourceEditorState(),
   };
 
   const cardElements = new Map();
@@ -325,6 +346,96 @@ export function mountApp(root, {
 
   function resourceKey(kind, resourceId) {
     return `${kind}:${resourceId}`;
+  }
+
+  function resourceEditorField(resource = state.resourceEditor.resource) {
+    if (!resource) return null;
+    return CARD_TYPE_CONFIG[resource.kind].multiline
+      ? elements.resourceEditorTextarea
+      : elements.resourceEditorInput;
+  }
+
+  function renderResourceEditor() {
+    const editor = state.resourceEditor;
+    const resource = editor.resource;
+    elements.resourceEditorBackdrop.hidden = !resource;
+    if (!resource) return;
+
+    const config = CARD_TYPE_CONFIG[resource.kind];
+    elements.resourceEditorHeading.textContent = `Edit ${config.label}`;
+    elements.resourceEditorSource.textContent = config.sourceLabel;
+    elements.resourceEditorInput.hidden = config.multiline;
+    elements.resourceEditorTextarea.hidden = !config.multiline;
+
+    const field = resourceEditorField(resource);
+    field.maxLength = config.maximumTitleLength;
+    field.value = editor.draftTitle;
+    field.disabled = editor.saving;
+    elements.resourceEditorCancel.disabled = editor.saving;
+    elements.resourceEditorClose.disabled = editor.saving;
+    elements.resourceEditorSave.disabled = !canSaveResourceEditor(editor);
+    elements.resourceEditorSave.textContent = editor.saving ? 'Saving…' : 'Save';
+    elements.resourceEditorError.hidden = !editor.error;
+    elements.resourceEditorError.textContent = editor.error?.message ?? '';
+  }
+
+  function openEditor(resource) {
+    if (!CARD_TYPE_CONFIG[resource.kind]?.editable) return;
+    state.resourceEditor = openResourceEditor(resource);
+    renderResourceEditor();
+    window.requestAnimationFrame(() => {
+      const field = resourceEditorField();
+      field?.focus();
+      field?.select();
+    });
+  }
+
+  function closeEditor() {
+    if (state.resourceEditor.saving) return;
+    state.resourceEditor = createResourceEditorState();
+    renderResourceEditor();
+  }
+
+  function resourceUpdateError(error) {
+    if (error?.status === 409) {
+      return new Error('This item changed elsewhere. Close and reopen it to load the latest version.');
+    }
+    const titleError = error?.payload?.title;
+    if (Array.isArray(titleError) && titleError[0]) {
+      return new Error(titleError[0]);
+    }
+    return new Error(error?.message || 'Couldn’t save this item.');
+  }
+
+  async function saveResourceEditor() {
+    if (!canSaveResourceEditor(state.resourceEditor)) return;
+    const editor = state.resourceEditor;
+    const resource = editor.resource;
+    state.resourceEditor = beginResourceEditorSave(editor);
+    renderResourceEditor();
+
+    try {
+      const payload = await catalogApi.update({
+        kind: resource.kind,
+        resourceId: resource.resource_id,
+        title: editor.draftTitle.trim(),
+        version: resource.version,
+      });
+      const updated = payload.resource;
+      state.resources.set(
+        resourceKey(updated.kind, updated.resource_id),
+        updated,
+      );
+      state.resourceEditor = createResourceEditorState();
+      renderResourceEditor();
+      renderCanvas();
+    } catch (error) {
+      state.resourceEditor = failResourceEditorSave(
+        state.resourceEditor,
+        resourceUpdateError(error),
+      );
+      renderResourceEditor();
+    }
   }
 
   function itemById(itemId) {
@@ -684,7 +795,12 @@ export function mountApp(root, {
   }
 
   function beginDrag(event, item, position) {
-    if (event.button !== 0 || state.saving || state.connectionEditor) return;
+    if (
+      event.button !== 0
+      || state.saving
+      || state.connectionEditor
+      || state.resourceEditor.resource
+    ) return;
     if (event.target.closest('button, input, textarea, select, a')) return;
 
     event.preventDefault();
@@ -1479,12 +1595,25 @@ export function mountApp(root, {
       position.innerHTML = cardView({
         type: item.kind,
         title,
+        editable: Boolean(
+          authenticated
+          && hydratedResource
+          && CARD_TYPE_CONFIG[item.kind]?.editable
+        ),
       });
       const connectionButton = position.querySelector('.connection-button');
+      const editButton = position.querySelector('.canvas-card-edit');
       const removeButton = position.querySelector('.canvas-card-remove');
       connectionButton.addEventListener('click', (event) => {
         event.stopPropagation();
         handleConnectionButton(item);
+      });
+      editButton?.addEventListener('pointerdown', (event) => {
+        event.stopPropagation();
+      });
+      editButton?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        openEditor(hydratedResource);
       });
       removeButton.addEventListener('pointerdown', (event) => {
         event.stopPropagation();
@@ -1620,6 +1749,38 @@ export function mountApp(root, {
     }
     openResourceSearch();
   });
+  [elements.resourceEditorInput, elements.resourceEditorTextarea].forEach((field) => {
+    field.addEventListener('input', () => {
+      state.resourceEditor = changeResourceEditorTitle(
+        state.resourceEditor,
+        field.value,
+      );
+      elements.resourceEditorSave.disabled = !canSaveResourceEditor(
+        state.resourceEditor,
+      );
+      elements.resourceEditorError.hidden = true;
+    });
+  });
+  elements.resourceEditorInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void saveResourceEditor();
+    }
+  });
+  elements.resourceEditorTextarea.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault();
+      void saveResourceEditor();
+    }
+  });
+  elements.resourceEditorSave.addEventListener('click', () => {
+    void saveResourceEditor();
+  });
+  elements.resourceEditorCancel.addEventListener('click', closeEditor);
+  elements.resourceEditorClose.addEventListener('click', closeEditor);
+  elements.resourceEditorBackdrop.addEventListener('pointerdown', (event) => {
+    if (event.target === elements.resourceEditorBackdrop) closeEditor();
+  });
 
   elements.accountButton.addEventListener('click', () => {
     if (state.sessionStatus !== 'authenticated') {
@@ -1652,6 +1813,8 @@ export function mountApp(root, {
     state.connectionEditor = null;
     state.connectionError = null;
     state.resources = new Map();
+    state.resourceEditor = createResourceEditorState();
+    renderResourceEditor();
     hideCanvasActionToast();
     layoutUpdates.clear();
     state.error = null;
@@ -1673,6 +1836,11 @@ export function mountApp(root, {
   });
 
   document.addEventListener('keydown', (event) => {
+    if (state.resourceEditor.resource && event.key === 'Escape') {
+      event.preventDefault();
+      closeEditor();
+      return;
+    }
     if (
       (event.metaKey || event.ctrlKey)
       && event.key.toLowerCase() === 'k'

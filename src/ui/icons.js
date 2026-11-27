@@ -7,6 +7,7 @@ const paths = {
   gap: '<path d="M4 12h6M14 12h6"/><path d="m7 9 3 3-3 3M17 9l-3 3 3 3"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   minus: '<path d="M5 12h14"/>',
+  edit: '<path d="M4 20h4l10.5-10.5a2.83 2.83 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.25"/><path d="m15.2 15.2 4.05 4.05"/>',
   close: '<path d="m7 7 10 10M17 7 7 17"/>',
   'arrow-left': '<path d="m15 18-6-6 6-6"/>',

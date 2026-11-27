@@ -21,6 +21,19 @@ export function createResourceCatalogApi({ request }) {
       });
     },
 
+    update({ kind, resourceId, title, version = null }) {
+      return request(
+        `/catalog/resources/${encodeURIComponent(kind)}/${encodeURIComponent(resourceId)}/`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            title,
+            ...(version != null ? { version } : {}),
+          }),
+        },
+      );
+    },
+
     resolve(references) {
       if (!references.length) {
         return Promise.resolve({

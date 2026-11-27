@@ -124,6 +124,33 @@ test('creates a dependent resource with a typed parent', async () => {
   });
 });
 
+test('updates a resource through its normalized catalog identity', async () => {
+  let captured;
+  const api = createResourceCatalogApi({
+    request(path, options) {
+      captured = { path, options };
+      return Promise.resolve({ resource: {} });
+    },
+  });
+
+  await api.update({
+    kind: 'thought',
+    resourceId: 'thought id',
+    title: 'Updated thought',
+    version: 3,
+  });
+
+  assert.equal(
+    captured.path,
+    '/catalog/resources/thought/thought%20id/',
+  );
+  assert.equal(captured.options.method, 'PATCH');
+  assert.deepEqual(JSON.parse(captured.options.body), {
+    title: 'Updated thought',
+    version: 3,
+  });
+});
+
 test('does not call the backend for an empty reference batch', async () => {
   let called = false;
   const api = createResourceCatalogApi({

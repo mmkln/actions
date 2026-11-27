@@ -36,3 +36,18 @@ test('renders each Skopos resource as a supported canvas card', () => {
   }
 });
 
+test('renders a discoverable edit action only for hydrated editable resources', () => {
+  const editable = cardView({
+    type: CARD_TYPES.THOUGHT,
+    title: 'Editable thought',
+    editable: true,
+  });
+  const unavailable = cardView({
+    type: CARD_TYPES.THOUGHT,
+    title: 'Unavailable thought',
+  });
+
+  assert.match(editable, /canvas-card-edit/);
+  assert.doesNotMatch(unavailable, /canvas-card-edit/);
+});
+

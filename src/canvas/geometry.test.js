@@ -11,7 +11,7 @@ test('adapts thought geometry to its content within safe bounds', () => {
 
   assert.deepEqual(canvasCardGeometry('thought', 'x'.repeat(120)), {
     width: 400,
-    height: 203,
+    height: 186,
   });
 });
 

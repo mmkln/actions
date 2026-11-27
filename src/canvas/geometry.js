@@ -16,7 +16,7 @@ function thoughtCardGeometry(title) {
   if (title === undefined) return CANVAS_CARD_GEOMETRY.thought;
 
   const characterCount = Array.from(`“${String(title).trim()}”`).length;
-  const estimatedTextWidth = Math.max(96, characterCount * 14.5);
+  const estimatedTextWidth = Math.max(96, characterCount * 11.2);
   const contentWidth = Math.min(350, estimatedTextWidth);
   const width = Math.ceil(Math.max(180, contentWidth + 50));
   const lineCount = Math.min(
@@ -26,7 +26,7 @@ function thoughtCardGeometry(title) {
 
   return {
     width,
-    height: Math.ceil(77 + (lineCount * 31.32)),
+    height: Math.max(109, Math.ceil(77 + (lineCount * 23 * 1.18))),
   };
 }
 

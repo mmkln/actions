@@ -1,51 +1,59 @@
 :root {
   color-scheme: light;
-  --app-background: #f9f8fe;
-  --app-gradient-one: rgba(221, 211, 255, 0.74);
-  --app-gradient-two: rgba(202, 234, 255, 0.72);
-  --app-gradient-three: rgba(255, 227, 211, 0.58);
-  --texture-dot: rgba(92, 80, 132, 0.17);
-  --surface-translucent: rgba(255, 255, 255, 0.76);
-  --surface: rgba(255, 255, 255, 0.82);
-  --surface-elevated: rgba(252, 251, 255, 0.97);
-  --surface-muted: #f3f1f8;
-  --surface-hover: rgba(255, 255, 255, 0.98);
-  --text-primary: #302a49;
-  --text-secondary: #625c7d;
-  --text-tertiary: #8a829e;
-  --border-subtle: rgba(85, 70, 130, 0.14);
-  --border-hover: rgba(107, 79, 204, 0.36);
-  --inset-highlight: rgba(255, 255, 255, 0.9);
-  --shadow-control: 0 8px 24px rgba(75, 56, 125, 0.1);
-  --shadow-card: 0 12px 32px rgba(64, 48, 111, 0.09);
-  --shadow-card-dragging: 0 22px 50px rgba(64, 48, 111, 0.18);
-  --shadow-panel: 0 22px 55px rgba(45, 31, 83, 0.18);
-  --accent: #7252dd;
-  --accent-strong: #6744d4;
-  --focus-ring: rgba(126, 95, 215, 0.2);
-  --orbit: rgba(122, 92, 220, 0.16);
-  --thought-surface: #f0ebff;
-  --thought-color: #7956e8;
+  --app-background: #fcf4ed;
+  --app-gradient-one: rgba(224, 205, 222, 0.24);
+  --app-gradient-two: rgba(220, 235, 215, 0.2);
+  --app-gradient-three: rgba(250, 216, 204, 0.16);
+  --texture-dot: rgba(83, 61, 105, 0.2);
+  --canvas-base: #fcf4ed;
+  --surface-translucent: rgba(255, 250, 246, 0.8);
+  --surface: rgba(255, 252, 248, 0.9);
+  --surface-elevated: rgba(255, 250, 246, 0.98);
+  --surface-muted: #f2e9e4;
+  --surface-hover: #fffdf9;
+  --text-primary: #281d2c;
+  --text-secondary: #675968;
+  --text-tertiary: #91838e;
+  --text-on-accent: #fffaf7;
+  --border-subtle: rgba(74, 51, 75, 0.16);
+  --border-hover: rgba(112, 74, 166, 0.4);
+  --inset-highlight: rgba(255, 255, 255, 0.76);
+  --shadow-control: 0 8px 24px rgba(65, 39, 66, 0.1);
+  --shadow-card: 0 12px 32px rgba(65, 39, 66, 0.09);
+  --shadow-card-dragging: 0 22px 50px rgba(65, 39, 66, 0.18);
+  --shadow-panel: 0 22px 55px rgba(50, 29, 53, 0.2);
+  --shadow-modal: 0 28px 90px rgba(50, 29, 53, 0.24);
+  --accent: #704aa6;
+  --accent-strong: #5f398f;
+  --success-color: #3d7044;
+  --focus-ring: rgba(112, 74, 166, 0.22);
+  --orbit: rgba(112, 74, 166, 0.18);
+  --selection: #3d72ad;
+  --danger: #b34850;
+  --danger-strong: #963942;
+  --danger-surface: rgba(179, 72, 80, 0.1);
+  --thought-surface: #f1e7f3;
+  --thought-color: #795287;
   --thought-card-paper: #f3ebdd;
   --thought-card-paper-light: #fffaf0;
   --thought-card-border: rgba(91, 73, 53, 0.3);
   --thought-card-border-hover: rgba(91, 73, 53, 0.44);
   --thought-card-ink: #191510;
   --thought-card-label: rgba(35, 29, 23, 0.66);
-  --goal-surface: #e6f6f1;
-  --goal-color: #18846f;
-  --task-surface: #eaf1fb;
-  --task-color: #3f6db4;
-  --achievement-surface: #e6f6ef;
-  --achievement-color: #23836a;
-  --requirement-surface: #edf0ff;
-  --requirement-color: #5870ca;
-  --gap-surface: #fff0e7;
-  --gap-color: #c56b3e;
-  --composer-surface: rgba(255, 255, 255, 0.84);
-  --composer-border: rgba(85, 70, 130, 0.18);
-  --composer-highlight: rgba(255, 255, 255, 0.72);
-  --composer-shadow: 0 14px 40px rgba(64, 48, 111, 0.13);
+  --goal-surface: #e4f1eb;
+  --goal-color: #347564;
+  --task-surface: #fae7e1;
+  --task-color: #ad432f;
+  --achievement-surface: #e7f1e2;
+  --achievement-color: #3d7044;
+  --requirement-surface: #e8edf7;
+  --requirement-color: #456a9e;
+  --gap-surface: #f6ead8;
+  --gap-color: #8a581f;
+  --composer-surface: rgba(255, 251, 247, 0.9);
+  --composer-border: rgba(74, 51, 75, 0.2);
+  --composer-highlight: rgba(255, 255, 255, 0.68);
+  --composer-shadow: 0 14px 40px rgba(65, 39, 66, 0.14);
   --composer-bottom-inset: max(48px, env(safe-area-inset-bottom));
   --composer-height: 56px;
   color: var(--text-primary);
@@ -61,40 +69,48 @@
   --app-gradient-one: rgba(71, 36, 78, 0.17);
   --app-gradient-two: rgba(118, 43, 30, 0.1);
   --app-gradient-three: rgba(72, 44, 96, 0.12);
-  --texture-dot: rgba(208, 196, 255, 0.32);
-  --surface-translucent: rgba(29, 27, 39, 0.78);
-  --surface: rgba(29, 27, 39, 0.9);
-  --surface-elevated: rgba(35, 32, 47, 0.97);
-  --surface-muted: #292733;
-  --surface-hover: rgba(43, 40, 55, 0.98);
-  --text-primary: #f3effc;
-  --text-secondary: #c2bbd3;
-  --text-tertiary: #928b9f;
-  --border-subtle: rgba(224, 216, 255, 0.12);
-  --border-hover: rgba(158, 133, 239, 0.46);
+  --texture-dot: rgba(223, 202, 225, 0.3);
+  --canvas-base: #0b0810;
+  --surface-translucent: rgba(24, 19, 29, 0.8);
+  --surface: rgba(27, 22, 33, 0.92);
+  --surface-elevated: rgba(35, 28, 41, 0.98);
+  --surface-muted: #2a2330;
+  --surface-hover: #332a38;
+  --text-primary: #f6eee8;
+  --text-secondary: #c9bbc4;
+  --text-tertiary: #998b95;
+  --text-on-accent: #fffaf7;
+  --border-subtle: rgba(244, 226, 220, 0.13);
+  --border-hover: rgba(185, 154, 214, 0.46);
   --inset-highlight: rgba(255, 255, 255, 0.06);
   --shadow-control: 0 8px 24px rgba(0, 0, 0, 0.24);
   --shadow-card: 0 12px 32px rgba(0, 0, 0, 0.3);
   --shadow-card-dragging: 0 22px 50px rgba(0, 0, 0, 0.42);
   --shadow-panel: 0 22px 60px rgba(0, 0, 0, 0.44);
-  --accent: #9d84ef;
-  --accent-strong: #8568e3;
-  --focus-ring: rgba(174, 152, 243, 0.32);
-  --orbit: rgba(174, 152, 243, 0.18);
-  --thought-surface: rgba(157, 132, 239, 0.14);
-  --thought-color: #ae98f3;
-  --goal-surface: rgba(70, 171, 145, 0.14);
-  --goal-color: #71c8b2;
-  --task-surface: rgba(92, 137, 198, 0.16);
-  --task-color: #8cb2e7;
-  --achievement-surface: rgba(66, 171, 137, 0.15);
-  --achievement-color: #75cdb0;
-  --requirement-surface: rgba(105, 128, 215, 0.16);
-  --requirement-color: #a3b4f3;
-  --gap-surface: rgba(203, 111, 65, 0.16);
-  --gap-color: #e9a27d;
-  --composer-surface: rgba(31, 29, 42, 0.92);
-  --composer-border: rgba(224, 216, 255, 0.2);
+  --shadow-modal: 0 28px 90px rgba(0, 0, 0, 0.5);
+  --accent: #b69adc;
+  --accent-strong: #9875c5;
+  --success-color: #9ac98e;
+  --focus-ring: rgba(182, 154, 220, 0.3);
+  --orbit: rgba(182, 154, 220, 0.2);
+  --selection: #78aee2;
+  --danger: #e9878d;
+  --danger-strong: #f09aa0;
+  --danger-surface: rgba(233, 135, 141, 0.12);
+  --thought-surface: rgba(182, 154, 220, 0.15);
+  --thought-color: #c7a8df;
+  --goal-surface: rgba(91, 161, 139, 0.16);
+  --goal-color: #86c5b0;
+  --task-surface: rgba(212, 96, 75, 0.16);
+  --task-color: #f08c76;
+  --achievement-surface: rgba(105, 157, 100, 0.17);
+  --achievement-color: #9ac98e;
+  --requirement-surface: rgba(90, 126, 174, 0.18);
+  --requirement-color: #9bbce4;
+  --gap-surface: rgba(188, 128, 55, 0.17);
+  --gap-color: #e3b46e;
+  --composer-surface: rgba(29, 23, 35, 0.94);
+  --composer-border: rgba(244, 226, 220, 0.18);
   --composer-highlight: rgba(255, 255, 255, 0.045);
   --composer-shadow: 0 14px 40px rgba(0, 0, 0, 0.22);
 }
@@ -249,8 +265,8 @@ button:disabled {
   height: 30px;
   flex: 0 0 30px;
   border-radius: 50%;
-  background: linear-gradient(145deg, #7560cb, #40365f);
-  color: #fff;
+  background: linear-gradient(145deg, var(--accent), var(--accent-strong));
+  color: var(--text-on-accent);
   font-size: 12px;
   font-weight: 750;
   place-items: center;
@@ -261,7 +277,7 @@ button:disabled {
   height: 40px;
   flex-basis: 40px;
   border: 0;
-  background: #5d4697;
+  background: var(--accent-strong);
   box-shadow: none;
   font-family: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", sans-serif;
   font-size: 16px;
@@ -396,21 +412,19 @@ button:disabled {
 .appearance-option.is-selected {
   background: var(--surface-elevated);
   color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(35, 26, 61, 0.12), inset 0 1px var(--inset-highlight);
-}
-
-:root[data-theme="dark"] .appearance-option.is-selected {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.32), inset 0 1px var(--inset-highlight);
+  box-shadow:
+    0 1px 3px color-mix(in srgb, var(--text-primary) 12%, transparent),
+    inset 0 1px var(--inset-highlight);
 }
 
 .account-popover .account-popover__sign-out {
-  color: #b64655;
+  color: var(--danger);
 }
 
 .account-popover .account-popover__sign-out:hover,
 .account-popover .account-popover__sign-out:focus-visible {
-  background: rgba(182, 70, 85, 0.09);
-  color: #a23849;
+  background: var(--danger-surface);
+  color: var(--danger-strong);
 }
 
 .icon {
@@ -667,7 +681,7 @@ button:disabled {
   border: 1px solid var(--border-subtle);
   border-radius: 24px;
   background: var(--surface-elevated);
-  box-shadow: 0 28px 80px rgba(20, 14, 40, 0.24), inset 0 1px 0 var(--inset-highlight);
+  box-shadow: var(--shadow-modal), inset 0 1px 0 var(--inset-highlight);
 }
 
 .resource-editor__header,
@@ -739,7 +753,7 @@ button:disabled {
 
 .resource-editor__error {
   margin: -10px 22px 18px;
-  color: #d14c59;
+  color: var(--danger);
   font-size: 13px;
 }
 
@@ -763,7 +777,7 @@ button:disabled {
 
 .resource-editor__footer .resource-editor__save {
   border-color: transparent;
-  color: white;
+  color: var(--text-on-accent);
   background: var(--accent);
 }
 
@@ -810,7 +824,7 @@ button:disabled {
 }
 
 .connection-action-button[data-connection-action-state="source"] {
-  color: #fff;
+  color: var(--text-on-accent);
   border-color: var(--accent);
   background: var(--accent);
 }
@@ -830,9 +844,9 @@ button:disabled {
 }
 
 .connection-action-button[data-connection-action-state="selected"] {
-  color: #fff;
-  border-color: #0a84ff;
-  background: #0a84ff;
+  color: var(--text-on-accent);
+  border-color: var(--selection);
+  background: var(--selection);
 }
 
 .canvas-card-position:hover .connection-button,
@@ -848,8 +862,10 @@ button:disabled {
 }
 
 .canvas-card-position.is-connection-selected .canvas-card {
-  border-color: rgba(10, 132, 255, 0.65);
-  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.1), var(--shadow-card-dragging);
+  border-color: color-mix(in srgb, var(--selection) 68%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--selection) 12%, transparent),
+    var(--shadow-card-dragging);
 }
 
 .is-connection-editing .canvas-card-position.is-connection-source .connection-button {
@@ -1018,10 +1034,10 @@ button:disabled {
   overflow: hidden;
   color: var(--thought-card-ink);
   font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-  font-size: 29px;
+  font-size: 23px;
   font-style: italic;
   font-weight: 600;
-  line-height: 1.08;
+  line-height: 1.18;
   letter-spacing: -0.035em;
   text-wrap: pretty;
   -webkit-box-orient: vertical;
@@ -1096,8 +1112,8 @@ button:disabled {
   border: 0;
   border-radius: 14px;
   background: linear-gradient(145deg, var(--accent), var(--accent-strong));
-  color: white;
-  box-shadow: 0 8px 18px rgba(105, 72, 213, 0.24);
+  color: var(--text-on-accent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 26%, transparent);
   cursor: pointer;
   font-weight: 700;
 }
@@ -1182,13 +1198,13 @@ button:disabled {
 }
 
 .connection-toolbar .connection-toolbar__done {
-  color: #fff;
+  color: var(--text-on-accent);
   background: var(--accent);
 }
 
 .connection-toolbar .connection-toolbar__done:hover:not(:disabled),
 .connection-toolbar .connection-toolbar__done:focus-visible {
-  color: #fff;
+  color: var(--text-on-accent);
   background: var(--accent-strong);
 }
 
@@ -1247,7 +1263,7 @@ button:disabled {
 
 .canvas-action-toast button:hover,
 .canvas-action-toast button:focus-visible {
-  color: #fff;
+  color: var(--text-on-accent);
   outline: 0;
   background: var(--accent);
 }
@@ -1288,7 +1304,7 @@ button:disabled {
   border-radius: 24px;
   background: color-mix(in srgb, var(--surface-elevated) 96%, transparent);
   box-shadow:
-    0 28px 90px color-mix(in srgb, #000 42%, transparent),
+    var(--shadow-modal),
     inset 0 1px color-mix(in srgb, var(--text-primary) 8%, transparent);
   transform: translate(50%, -50%);
 }
@@ -1887,7 +1903,7 @@ button:disabled {
   padding: 0 13px;
   border: 0;
   border-radius: 10px;
-  color: #fff;
+  color: var(--text-on-accent);
   cursor: pointer;
   background: var(--accent);
   font: inherit;
@@ -1975,8 +1991,8 @@ button:disabled {
 }
 
 .resource-search-popover__result-icon.is-task {
-  color: var(--task-accent, #79aef8);
-  background: color-mix(in srgb, var(--task-accent, #79aef8) 12%, transparent);
+  color: var(--task-color);
+  background: var(--task-surface);
 }
 
 .resource-search-popover__result-icon.is-achievement {

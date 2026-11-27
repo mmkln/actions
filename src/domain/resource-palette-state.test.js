@@ -26,7 +26,7 @@ test('moves from search through type selection to configuration', () => {
   assert.equal(canSubmitResourceDraft(configuring, CARD_TYPE_CONFIG), true);
 });
 
-test('requires the correct parent for dependent Skopos resources', () => {
+test('accepts an optional parent only when it has the correct kind', () => {
   const configuring = chooseResourceKind(
     beginResourceCreation(createResourcePaletteState()),
     'gap',
@@ -40,7 +40,7 @@ test('requires the correct parent for dependent Skopos resources', () => {
     resource_id: 'requirement-id',
   });
 
-  assert.equal(canSubmitResourceDraft(configuring, CARD_TYPE_CONFIG), false);
+  assert.equal(canSubmitResourceDraft(configuring, CARD_TYPE_CONFIG), true);
   assert.equal(canSubmitResourceDraft(wrongParent, CARD_TYPE_CONFIG), false);
   assert.equal(canSubmitResourceDraft(correctParent, CARD_TYPE_CONFIG), true);
 });

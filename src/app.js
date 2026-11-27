@@ -64,6 +64,7 @@ import {
 } from './ui/connection-action-button.js';
 import { icon } from './ui/icons.js';
 import { resourceEditorView } from './ui/resource-editor.js';
+import { findSpatialNeighbor } from './ui/spatial-focus.js';
 
 const RESOURCE_SEARCH_TTL_MS = 60_000;
 
@@ -173,34 +174,50 @@ function shellView() {
               <button type="button" aria-label="Back to search" data-resource-create-back>${icon('arrow-left')}</button>
               <div>
                 <h2 data-resource-create-heading></h2>
-                <p>What are you creating?</p>
+                <p>Choose what this will become</p>
               </div>
               <kbd>Esc</kbd>
             </header>
-            <div class="resource-palette__kind-list" data-resource-create-kinds>
-              <p>ACTIONS</p>
-              <button type="button" data-resource-create-kind="task">
-                <span class="resource-search-popover__result-icon is-task">${icon('check')}</span>
-                <span><strong>Task</strong><small>Majom · Standalone action</small></span><b>›</b>
-              </button>
-              <button type="button" data-resource-create-kind="thought">
-                <span class="resource-search-popover__result-icon is-thought">${icon('spark')}</span>
-                <span><strong>Thought</strong><small>Flying Thoughts · Standalone insight</small></span><b>›</b>
-              </button>
-              <p>SKOPOS STRUCTURE</p>
-              <button type="button" data-resource-create-kind="achievement">
-                <span class="resource-search-popover__result-icon is-achievement">${icon('achievement')}</span>
-                <span><strong>Achievement</strong><small>Top-level outcome</small></span><b>›</b>
-              </button>
-              <button type="button" data-resource-create-kind="requirement">
-                <span class="resource-search-popover__result-icon is-requirement">${icon('requirement')}</span>
-                <span><strong>Requirement</strong><small>Belongs to an Achievement</small></span><b>›</b>
-              </button>
-              <button type="button" data-resource-create-kind="gap">
-                <span class="resource-search-popover__result-icon is-gap">${icon('gap')}</span>
-                <span><strong>Gap</strong><small>Belongs to a Requirement</small></span><b>›</b>
-              </button>
+            <div class="resource-kind-picker" data-resource-create-kinds>
+              <section class="resource-kind-section" aria-labelledby="resource-kind-quick-heading">
+                <h3 id="resource-kind-quick-heading">QUICK ITEMS</h3>
+                <div class="resource-kind-grid is-quick">
+                  <button class="resource-kind-card" type="button" data-resource-create-kind="task">
+                    <span class="resource-search-popover__result-icon is-task">${icon('check')}</span>
+                    <span><strong>Task</strong><small>A standalone action in Majom</small></span><b>›</b>
+                  </button>
+                  <button class="resource-kind-card" type="button" data-resource-create-kind="thought">
+                    <span class="resource-search-popover__result-icon is-thought">${icon('spark')}</span>
+                    <span><strong>Thought</strong><small>A standalone insight in Flying Thoughts</small></span><b>›</b>
+                  </button>
+                </div>
+              </section>
+              <section class="resource-kind-section" aria-labelledby="resource-kind-strategic-heading">
+                <header class="resource-kind-section__heading">
+                  <h3 id="resource-kind-strategic-heading">STRATEGIC ITEMS</h3>
+                  <p>Create independently · connect later</p>
+                </header>
+                <div class="resource-kind-grid is-strategic">
+                  <button class="resource-kind-card" type="button" data-resource-create-kind="achievement">
+                    <span class="resource-search-popover__result-icon is-achievement">${icon('achievement')}</span>
+                    <span><strong>Achievement</strong><small>An outcome to reach</small></span><b>›</b>
+                  </button>
+                  <button class="resource-kind-card" type="button" data-resource-create-kind="requirement">
+                    <span class="resource-search-popover__result-icon is-requirement">${icon('requirement')}</span>
+                    <span><strong>Requirement</strong><small>A condition or need</small></span><b>›</b>
+                  </button>
+                  <button class="resource-kind-card" type="button" data-resource-create-kind="gap">
+                    <span class="resource-search-popover__result-icon is-gap">${icon('gap')}</span>
+                    <span><strong>Gap</strong><small>Something currently missing</small></span><b>›</b>
+                  </button>
+                </div>
+              </section>
             </div>
+            <footer class="resource-kind-shortcuts" aria-hidden="true">
+              <span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> Navigate</span>
+              <span><kbd data-resource-confirm-key>Return</kbd> Select</span>
+              <span><kbd>Esc</kbd> Back</span>
+            </footer>
           </div>
 
           <div class="resource-palette__screen" data-resource-configure-screen hidden>
@@ -295,6 +312,7 @@ export function mountApp(root, {
     resourceCreateBack: root.querySelector('[data-resource-create-back]'),
     resourceCreateKinds: root.querySelector('[data-resource-create-kinds]'),
     resourceCreateKindButtons: [...root.querySelectorAll('[data-resource-create-kind]')],
+    resourceConfirmKey: root.querySelector('[data-resource-confirm-key]'),
     resourceConfigureBack: root.querySelector('[data-resource-configure-back]'),
     resourceConfigureHeading: root.querySelector('[data-resource-configure-heading]'),
     resourceConfigureSubtitle: root.querySelector('[data-resource-configure-subtitle]'),
@@ -355,9 +373,11 @@ export function mountApp(root, {
   let placementFeedbackTimer = null;
 
   const platform = navigator.userAgentData?.platform ?? navigator.platform ?? '';
+  const isApplePlatform = /Mac|iPhone|iPad|iPod/i.test(platform);
   elements.resourceSearchShortcutModifier.textContent = (
-    /Mac|iPhone|iPad|iPod/i.test(platform) ? '⌘' : 'Ctrl'
+    isApplePlatform ? '⌘' : 'Ctrl'
   );
+  elements.resourceConfirmKey.textContent = isApplePlatform ? 'Return' : 'Enter';
 
   function resourceKey(kind, resourceId) {
     return `${kind}:${resourceId}`;
@@ -1075,7 +1095,7 @@ export function mountApp(root, {
     elements.resourceParentSection.hidden = !parentConfig;
 
     if (parentConfig) {
-      elements.resourceParentLabel.textContent = 'BELONGS TO';
+      elements.resourceParentLabel.textContent = 'CONNECT TO · OPTIONAL';
       elements.resourceParentSearch.placeholder = `Search ${parentConfig.pluralLabel.toLowerCase()}…`;
       elements.resourceParentSearch.value = palette.parentQuery;
       elements.resourceParentStatus.textContent = palette.parentLoading
@@ -1537,7 +1557,7 @@ export function mountApp(root, {
             error: null,
           },
           actionError: new Error(
-            `Created in ${resource.source === 'majom' ? 'Majom' : 'Flying Thoughts'}, but couldn’t place it on the canvas. Try again.`,
+            `Created in ${CARD_TYPE_CONFIG[resource.kind].sourceLabel}, but couldn’t place it on the canvas. Try again.`,
           ),
         };
         state.selectedResourceKey = key;
@@ -1877,10 +1897,18 @@ export function mountApp(root, {
     ].parentKind;
     if (parentKind) {
       void searchResourceParents();
-      window.requestAnimationFrame(() => elements.resourceParentSearch.focus());
-    } else {
-      window.requestAnimationFrame(() => elements.resourceCreateAction.focus());
     }
+    window.requestAnimationFrame(() => elements.resourceCreateAction.focus());
+  });
+  elements.resourceCreateKinds.addEventListener('keydown', (event) => {
+    const next = findSpatialNeighbor(
+      elements.resourceCreateKindButtons,
+      document.activeElement,
+      event.key,
+    );
+    if (!next) return;
+    event.preventDefault();
+    next.focus();
   });
   elements.resourceParentSearch.addEventListener('input', scheduleParentSearch);
   elements.resourceCreateAction.addEventListener('click', () => {

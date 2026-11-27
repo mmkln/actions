@@ -198,6 +198,7 @@ export function canSubmitResourceDraft(state, cardTypeConfig) {
   if (state.screen !== RESOURCE_PALETTE_SCREENS.CONFIGURE) return false;
   if (!state.draft.selectedKind) return false;
   const parentKind = cardTypeConfig[state.draft.selectedKind]?.parentKind;
-  if (!parentKind) return true;
-  return state.draft.selectedParent?.kind === parentKind;
+  const parent = state.draft.selectedParent;
+  if (!parentKind || !parent) return true;
+  return parent.kind === parentKind;
 }

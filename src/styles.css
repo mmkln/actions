@@ -30,6 +30,12 @@
   --goal-color: #18846f;
   --task-surface: #eaf1fb;
   --task-color: #3f6db4;
+  --achievement-surface: #e6f6ef;
+  --achievement-color: #23836a;
+  --requirement-surface: #edf0ff;
+  --requirement-color: #5870ca;
+  --gap-surface: #fff0e7;
+  --gap-color: #c56b3e;
   --composer-surface: rgba(255, 255, 255, 0.84);
   --composer-border: rgba(85, 70, 130, 0.18);
   --composer-highlight: rgba(255, 255, 255, 0.72);
@@ -75,6 +81,12 @@
   --goal-color: #71c8b2;
   --task-surface: rgba(92, 137, 198, 0.16);
   --task-color: #8cb2e7;
+  --achievement-surface: rgba(66, 171, 137, 0.15);
+  --achievement-color: #75cdb0;
+  --requirement-surface: rgba(105, 128, 215, 0.16);
+  --requirement-color: #a3b4f3;
+  --gap-surface: rgba(203, 111, 65, 0.16);
+  --gap-color: #e9a27d;
   --composer-surface: rgba(31, 29, 42, 0.92);
   --composer-border: rgba(224, 216, 255, 0.2);
   --composer-highlight: rgba(255, 255, 255, 0.045);
@@ -724,6 +736,21 @@ button:disabled {
   background: var(--task-surface);
 }
 
+.canvas-card--achievement .canvas-card__icon {
+  color: var(--achievement-color);
+  background: var(--achievement-surface);
+}
+
+.canvas-card--requirement .canvas-card__icon {
+  color: var(--requirement-color);
+  background: var(--requirement-surface);
+}
+
+.canvas-card--gap .canvas-card__icon {
+  color: var(--gap-color);
+  background: var(--gap-surface);
+}
+
 .canvas-card__body {
   min-width: 0;
 }
@@ -1308,6 +1335,21 @@ button:disabled {
 .resource-search-popover__result-icon.is-task {
   color: var(--task-accent, #79aef8);
   background: color-mix(in srgb, var(--task-accent, #79aef8) 12%, transparent);
+}
+
+.resource-search-popover__result-icon.is-achievement {
+  color: var(--achievement-color);
+  background: var(--achievement-surface);
+}
+
+.resource-search-popover__result-icon.is-requirement {
+  color: var(--requirement-color);
+  background: var(--requirement-surface);
+}
+
+.resource-search-popover__result-icon.is-gap {
+  color: var(--gap-color);
+  background: var(--gap-surface);
 }
 
 .resource-search-popover__result-icon .icon {

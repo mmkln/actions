@@ -20,3 +20,19 @@ test('renders the card kind through its icon without a duplicate text label', ()
   assert.match(markup, /canvas-card-remove/);
 });
 
+test('renders each Skopos resource as a supported canvas card', () => {
+  for (const type of [
+    CARD_TYPES.ACHIEVEMENT,
+    CARD_TYPES.REQUIREMENT,
+    CARD_TYPES.GAP,
+  ]) {
+    const markup = cardView({
+      type,
+      title: `Example ${type}`,
+    });
+
+    assert.match(markup, new RegExp(`canvas-card--${type}`));
+    assert.match(markup, new RegExp(`Example ${type}`));
+  }
+});
+

@@ -24,6 +24,9 @@ test('offers task and thought creation while disabling an exact duplicate kind',
   assert.equal(options[0].canCreate, false);
   assert.equal(options[1].kind, 'thought');
   assert.equal(options[1].canCreate, true);
+  assert.equal(options.some(({ kind }) => kind === 'achievement'), false);
+  assert.equal(options.some(({ kind }) => kind === 'requirement'), false);
+  assert.equal(options.some(({ kind }) => kind === 'gap'), false);
 });
 
 test('uses source availability and source-specific title limits', () => {

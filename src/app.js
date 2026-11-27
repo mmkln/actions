@@ -22,6 +22,11 @@ import {
   resolveResource,
 } from './domain/demo-resources.js';
 import {
+  CARD_TYPE_CONFIG,
+  SEARCHABLE_CARD_TYPES,
+  isExternalCardType,
+} from './domain/card-types.js';
+import {
   getResourceCreationOptions,
 } from './domain/resource-creation.js';
 import { cardView } from './ui/card.js';
@@ -113,7 +118,7 @@ function shellView() {
       <div class="composer" role="search" aria-label="Search and add resources">
         <div class="resource-search-popover" data-resource-search-popover hidden>
           <p class="resource-search-popover__status" data-resource-search-status></p>
-          <div class="resource-search-popover__results" id="resource-search-results" role="listbox" aria-label="Tasks and thoughts" data-resource-results></div>
+          <div class="resource-search-popover__results" id="resource-search-results" role="listbox" aria-label="Resources" data-resource-results></div>
           <section class="resource-create-panel" data-resource-create hidden>
             <div class="resource-create-panel__main">
               <span class="resource-create-panel__icon" data-resource-create-icon aria-hidden="true"></span>
@@ -730,7 +735,7 @@ export function mountApp(root, {
 
     const resourceIcon = document.createElement('span');
     resourceIcon.className = `resource-search-popover__result-icon is-${resource.kind}`;
-    resourceIcon.innerHTML = icon(resource.kind === 'task' ? 'check' : 'spark');
+    resourceIcon.innerHTML = icon(CARD_TYPE_CONFIG[resource.kind].icon);
 
     const copy = document.createElement('span');
     copy.className = 'resource-search-popover__result-copy';
@@ -801,13 +806,15 @@ export function mountApp(root, {
     elements.resourceCreate.hidden = !visible;
     if (!visible) return;
 
-    const isTask = proposal.kind === 'task';
+    const proposalConfig = CARD_TYPE_CONFIG[proposal.kind];
     elements.resourceCreate.dataset.kind = proposal.kind;
     elements.resourceCreateIcon.className = (
       `resource-create-panel__icon is-${proposal.kind}`
     );
-    elements.resourceCreateIcon.innerHTML = icon(isTask ? 'check' : 'spark');
-    elements.resourceCreateLabel.textContent = isTask ? 'New task' : 'New thought';
+    elements.resourceCreateIcon.innerHTML = icon(proposalConfig.icon);
+    elements.resourceCreateLabel.textContent = (
+      `New ${proposalConfig.label.toLowerCase()}`
+    );
     elements.resourceCreateTitle.textContent = proposal.title;
     elements.resourceCreateAction.disabled = state.saving || !proposal.canCreate;
     elements.resourceCreateAction.textContent = (
@@ -823,11 +830,11 @@ export function mountApp(root, {
 
     let note = '';
     if (proposal.tooLong) {
-      note = `${isTask ? 'Task titles' : 'Thoughts'} can contain up to ${proposal.maximumLength} characters.`;
+      note = `${proposalConfig.pluralLabel} can contain up to ${proposal.maximumLength} characters.`;
     } else if (proposal.sourceUnavailable) {
-      note = `${isTask ? 'Majom' : 'Flying Thoughts'} is temporarily unavailable.`;
+      note = `${proposalConfig.sourceLabel} is temporarily unavailable.`;
     } else if (proposal.duplicate) {
-      note = `This ${proposal.kind} already exists.`;
+      note = `This ${proposalConfig.label.toLowerCase()} already exists.`;
     }
     elements.resourceCreateNote.textContent = note;
     elements.resourceCreateNote.hidden = !note;
@@ -846,7 +853,7 @@ export function mountApp(root, {
     if (!state.searchOpen) return;
 
     if (state.searchLoading) {
-      elements.resourceSearchStatus.textContent = 'Searching tasks and thoughts…';
+      elements.resourceSearchStatus.textContent = 'Searching…';
     } else if (state.searchError) {
       elements.resourceSearchStatus.textContent = state.searchError.message;
     } else {
@@ -856,16 +863,14 @@ export function mountApp(root, {
       elements.resourceSearchStatus.textContent = state.unavailableSources.length
         ? 'Some sources are temporarily unavailable.'
         : !state.searchResults.length && !hasCreationCandidate
-          ? 'No matching tasks or thoughts.'
+          ? 'No matching resources.'
           : '';
     }
 
     if (!state.searchLoading) {
       const fragment = document.createDocumentFragment();
-      [
-        ['task', 'Tasks'],
-        ['thought', 'Thoughts'],
-      ].forEach(([kind, label]) => {
+      SEARCHABLE_CARD_TYPES.forEach((kind) => {
+        const config = CARD_TYPE_CONFIG[kind];
         const resources = state.searchResults.filter(
           (resource) => resource.kind === kind,
         );
@@ -873,9 +878,9 @@ export function mountApp(root, {
         const group = document.createElement('section');
         group.className = 'resource-search-popover__group';
         group.setAttribute('role', 'group');
-        group.setAttribute('aria-label', label);
+        group.setAttribute('aria-label', config.pluralLabel);
         const heading = document.createElement('h3');
-        heading.textContent = label;
+        heading.textContent = config.pluralLabel;
         group.append(heading, ...resources.map(createResourceResult));
         fragment.append(group);
       });
@@ -1153,7 +1158,7 @@ export function mountApp(root, {
     const references = [];
     const seen = new Set();
     (state.canvas?.items ?? [])
-      .filter((item) => item.kind === 'task' || item.kind === 'thought')
+      .filter((item) => isExternalCardType(item.kind))
       .forEach((item) => {
         const key = resourceKey(item.kind, item.resource_id);
         if (seen.has(key)) return;
@@ -1200,7 +1205,7 @@ export function mountApp(root, {
     cardElements.clear();
 
     for (const item of items) {
-      const isExternalResource = item.kind === 'task' || item.kind === 'thought';
+      const isExternalResource = isExternalCardType(item.kind);
       const hydratedResource = state.resources.get(
         resourceKey(item.kind, item.resource_id),
       );

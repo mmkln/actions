@@ -1,14 +1,7 @@
-export const RESOURCE_CREATION_KINDS = Object.freeze(['task', 'thought']);
-
-const SOURCE_BY_KIND = Object.freeze({
-  task: 'majom',
-  thought: 'flying-thoughts',
-});
-
-const TITLE_LIMIT_BY_KIND = Object.freeze({
-  task: 200,
-  thought: 2000,
-});
+import {
+  CARD_TYPE_CONFIG,
+  CREATABLE_CARD_TYPES,
+} from './card-types.js';
 
 export function normalizeResourceTitle(value) {
   return String(value ?? '')
@@ -27,9 +20,10 @@ export function getResourceCreationOptions({
   if (!title) return [];
 
   const normalizedTitle = normalizeResourceTitle(title);
-  return RESOURCE_CREATION_KINDS.map((kind) => {
-    const source = SOURCE_BY_KIND[kind];
-    const maximumLength = TITLE_LIMIT_BY_KIND[kind];
+  return CREATABLE_CARD_TYPES.map((kind) => {
+    const config = CARD_TYPE_CONFIG[kind];
+    const source = config.source;
+    const maximumLength = config.maximumTitleLength;
     const duplicate = results.some((resource) => (
       resource.kind === kind
       && normalizeResourceTitle(resource.title) === normalizedTitle

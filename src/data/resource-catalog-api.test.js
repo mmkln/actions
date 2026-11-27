@@ -26,6 +26,9 @@ test('resolves mixed resource references with one batch request', async () => {
   const references = [
     { kind: 'task', resource_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
     { kind: 'thought', resource_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+    { kind: 'achievement', resource_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' },
+    { kind: 'requirement', resource_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' },
+    { kind: 'gap', resource_id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' },
   ];
   const api = createResourceCatalogApi({
     request(path, options) {

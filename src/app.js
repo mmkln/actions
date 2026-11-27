@@ -73,6 +73,7 @@ import { resourceEditorView } from './ui/resource-editor.js';
 import { findSpatialNeighbor } from './ui/spatial-focus.js';
 
 const RESOURCE_SEARCH_TTL_MS = 60_000;
+const CARD_DOUBLE_CLICK_WINDOW_MS = 400;
 
 function shellView() {
   return `
@@ -406,6 +407,7 @@ export function mountApp(root, {
   let hydrationGeneration = 0;
   let removalTimer = null;
   let placementFeedbackTimer = null;
+  let previousCardClick = null;
 
   const platform = navigator.userAgentData?.platform ?? navigator.platform ?? '';
   const isApplePlatform = /Mac|iPhone|iPad|iPod/i.test(platform);
@@ -870,7 +872,21 @@ export function mountApp(root, {
     }
   }
 
-  function beginDrag(event, item, position) {
+  function registerCardClick(itemId, timestamp) {
+    const previous = previousCardClick;
+    const isDoubleClick = Boolean(
+      previous
+      && previous.itemId === itemId
+      && timestamp - previous.timestamp <= CARD_DOUBLE_CLICK_WINDOW_MS
+    );
+
+    previousCardClick = isDoubleClick
+      ? null
+      : { itemId, timestamp };
+    return isDoubleClick;
+  }
+
+  function beginDrag(event, item, position, onDoubleClick = null) {
     if (
       event.button !== 0
       || state.saving
@@ -927,7 +943,17 @@ export function mountApp(root, {
       position.removeEventListener('pointercancel', cancelDrag);
       position.classList.remove('is-dragging');
 
-      if (!dragging) return;
+      if (!dragging) {
+        if (
+          registerCardClick(item.id, finishEvent.timeStamp)
+          && onDoubleClick
+        ) {
+          onDoubleClick();
+        }
+        return;
+      }
+
+      previousCardClick = null;
 
       item.x = Math.round(nextPosition.x);
       item.y = Math.round(nextPosition.y);
@@ -950,6 +976,7 @@ export function mountApp(root, {
       position.removeEventListener('pointerup', finishDrag);
       position.removeEventListener('pointercancel', cancelDrag);
       position.classList.remove('is-dragging');
+      previousCardClick = null;
       renderScheduler.request({
         items: [item.id],
         connections: true,
@@ -1898,30 +1925,13 @@ export function mountApp(root, {
       position.innerHTML = cardView({
         type: item.kind,
         title,
-        editable,
       });
-      const card = position.querySelector('.canvas-card');
       const connectionButton = position.querySelector('.connection-button');
-      const editButton = position.querySelector('.canvas-card-edit');
       const removeButton = position.querySelector('.canvas-card-remove');
       connectionButton.addEventListener('click', (event) => {
         event.stopPropagation();
         handleConnectionButton(item);
       });
-      editButton?.addEventListener('pointerdown', (event) => {
-        event.stopPropagation();
-      });
-      editButton?.addEventListener('click', (event) => {
-        event.stopPropagation();
-        openEditor(hydratedResource);
-      });
-      if (editable) {
-        card.addEventListener('dblclick', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          openEditor(hydratedResource);
-        });
-      }
       removeButton.addEventListener('pointerdown', (event) => {
         event.stopPropagation();
       });
@@ -1930,7 +1940,12 @@ export function mountApp(root, {
         void removeItemFromCanvas(item);
       });
       position.addEventListener('pointerdown', (event) => {
-        beginDrag(event, item, position);
+        beginDrag(
+          event,
+          item,
+          position,
+          editable ? () => openEditor(hydratedResource) : null,
+        );
       });
       cardElements.set(item.id, position);
       elements.canvasItems.append(position);

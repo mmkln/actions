@@ -729,7 +729,6 @@ button:disabled {
   pointer-events: none;
 }
 
-.canvas-card-edit,
 .canvas-card-remove {
   position: absolute;
   z-index: 4;
@@ -751,27 +750,18 @@ button:disabled {
   transition: opacity 160ms ease, color 160ms ease, background 160ms ease, border-color 160ms ease;
 }
 
-.canvas-card-edit {
-  right: 25px;
-}
-
-.canvas-card-edit .icon,
 .canvas-card-remove .icon {
   width: 17px;
   height: 17px;
   pointer-events: none;
 }
 
-.canvas-card-position:hover .canvas-card-edit,
 .canvas-card-position:hover .canvas-card-remove,
-.canvas-card-position:focus-within .canvas-card-edit,
 .canvas-card-position:focus-within .canvas-card-remove {
   opacity: 1;
   pointer-events: auto;
 }
 
-.canvas-card-edit:hover,
-.canvas-card-edit:focus-visible,
 .canvas-card-remove:hover,
 .canvas-card-remove:focus-visible {
   color: var(--accent);
@@ -780,19 +770,16 @@ button:disabled {
   background: var(--surface-hover);
 }
 
-.canvas-card-edit:focus-visible,
 .canvas-card-remove:focus-visible {
   box-shadow: 0 0 0 3px var(--focus-ring), var(--shadow-control);
 }
 
-.canvas-card-edit:disabled,
 .canvas-card-remove:disabled {
   cursor: wait;
   opacity: 0.5;
 }
 
 @media (hover: none) {
-  .canvas-card-edit,
   .canvas-card-remove {
     opacity: 1;
     pointer-events: auto;
@@ -1096,17 +1083,17 @@ button:disabled {
 }
 
 .canvas-card--action {
-  --editorial-card-min-width: var(--action-card-min-width, 250px);
-  --editorial-card-max-width: var(--action-card-max-width, 440px);
-  --editorial-card-min-height: var(--action-card-min-height, 135px);
-  --editorial-card-padding-inline: var(--action-card-padding-inline, 26px);
-  --editorial-card-padding-top: var(--action-card-padding-top, 20px);
-  --editorial-card-padding-bottom: var(--action-card-padding-bottom, 24px);
-  --editorial-card-content-gap: var(--action-card-content-gap, 16px);
-  --editorial-card-header-gap: var(--action-card-header-gap, 14px);
-  --editorial-card-icon-size: var(--action-card-icon-size, 42px);
-  --editorial-card-radius: var(--action-card-radius, 20px);
-  --editorial-card-content-width: var(--action-card-content-width, 388px);
+  --editorial-card-min-width: var(--action-card-min-width, 220px);
+  --editorial-card-max-width: var(--action-card-max-width, 400px);
+  --editorial-card-min-height: var(--action-card-min-height, 112px);
+  --editorial-card-padding-inline: var(--action-card-padding-inline, 24px);
+  --editorial-card-padding-top: var(--action-card-padding-top, 18px);
+  --editorial-card-padding-bottom: var(--action-card-padding-bottom, 22px);
+  --editorial-card-content-gap: var(--action-card-content-gap, 13px);
+  --editorial-card-header-gap: var(--action-card-header-gap, 11px);
+  --editorial-card-icon-size: var(--action-card-icon-size, 30px);
+  --editorial-card-radius: var(--action-card-radius, 18px);
+  --editorial-card-content-width: var(--action-card-content-width, 352px);
 
   border: 1.5px solid var(--action-card-border);
   color: var(--action-card-ink);
@@ -1195,7 +1182,7 @@ button:disabled {
 
 .action-card__icon {
   border: 1.5px solid var(--action-card-border);
-  border-radius: 11px;
+  border-radius: 9px;
   color: var(--action-card-border);
 }
 
@@ -1212,8 +1199,8 @@ button:disabled {
 }
 
 .action-card__icon .icon {
-  width: 25px;
-  height: 25px;
+  width: 18px;
+  height: 18px;
   stroke-width: 1.8;
 }
 
@@ -1221,10 +1208,10 @@ button:disabled {
   overflow: hidden;
   color: var(--action-card-label);
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 750;
   line-height: 1;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.09em;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1261,7 +1248,7 @@ button:disabled {
 .canvas-card--action .action-card__title {
   color: var(--action-card-ink);
   font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 600;
   line-height: 1.08;
   letter-spacing: -0.025em;

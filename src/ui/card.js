@@ -69,21 +69,16 @@ function regularArticleView({ type, title, config }) {
   `;
 }
 
-function cardControlsView({ editable }) {
+function cardControlsView() {
   return `
     <button class="connection-button connection-action-button" type="button"></button>
-    ${editable ? `
-      <button class="canvas-card-edit" type="button" title="Edit item" aria-label="Edit item">
-        ${icon('edit')}
-      </button>
-    ` : ''}
     <button class="canvas-card-remove" type="button" title="Remove from this Board" aria-label="Remove from this Board">
       ${icon('minus')}
     </button>
   `;
 }
 
-export function cardView({ type, title, editable = false }) {
+export function cardView({ type, title }) {
   if (!isCardType(type)) {
     throw new TypeError(`Unsupported card type: ${type}`);
   }
@@ -97,6 +92,6 @@ export function cardView({ type, title, editable = false }) {
   }[type] ?? regularArticleView;
   const article = articleView({ type, title, config });
 
-  return `${article}${cardControlsView({ editable })}`;
+  return `${article}${cardControlsView()}`;
 }
 

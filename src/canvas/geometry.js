@@ -18,16 +18,16 @@ export const EDITORIAL_CARD_LAYOUT = Object.freeze({
 });
 
 export const ACTION_CARD_LAYOUT = Object.freeze({
-  minWidth: 250,
-  maxWidth: 440,
-  minHeight: 135,
-  paddingInline: 26,
-  paddingTop: 20,
-  paddingBottom: 24,
-  contentGap: 16,
-  headerGap: 14,
-  iconSize: 42,
-  borderRadius: 20,
+  minWidth: 220,
+  maxWidth: 400,
+  minHeight: 112,
+  paddingInline: 24,
+  paddingTop: 18,
+  paddingBottom: 22,
+  contentGap: 13,
+  headerGap: 11,
+  iconSize: 30,
+  borderRadius: 18,
   maxLines: 4,
 });
 
@@ -61,7 +61,7 @@ export const EDITORIAL_CARD_CSS_VARIABLES = Object.freeze({
 });
 
 export const CANVAS_CARD_GEOMETRY = Object.freeze({
-  action: Object.freeze({ width: ACTION_CARD_LAYOUT.maxWidth, height: 232 }),
+  action: Object.freeze({ width: ACTION_CARD_LAYOUT.maxWidth, height: 196 }),
   thought: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 203 }),
   achievement: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 192 }),
   task: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 192 }),
@@ -74,8 +74,8 @@ export const CANVAS_INSERTION_GAP = 8;
 
 const CONTENT_DRIVEN_CARD_GEOMETRY = Object.freeze({
   action: Object.freeze({
-    characterWidth: 13.2,
-    lineHeight: 30 * 1.08,
+    characterWidth: 12,
+    lineHeight: 26 * 1.08,
     layout: ACTION_CARD_LAYOUT,
   }),
   thought: Object.freeze({

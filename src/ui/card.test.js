@@ -109,18 +109,13 @@ test('escapes the complete task title', () => {
   assert.doesNotMatch(markup, /<Run>/);
 });
 
-test('renders a discoverable edit action only for hydrated editable resources', () => {
-  const editable = cardView({
+test('does not render a legacy edit button on the card', () => {
+  const markup = cardView({
     type: CARD_TYPES.THOUGHT,
     title: 'Editable thought',
-    editable: true,
-  });
-  const unavailable = cardView({
-    type: CARD_TYPES.THOUGHT,
-    title: 'Unavailable thought',
   });
 
-  assert.match(editable, /canvas-card-edit/);
-  assert.doesNotMatch(unavailable, /canvas-card-edit/);
+  assert.doesNotMatch(markup, /canvas-card-edit/);
+  assert.match(markup, /canvas-card-remove/);
 });
 

@@ -7,6 +7,7 @@ export const RESOURCE_PALETTE_SCREENS = Object.freeze({
 export function createResourcePaletteState() {
   return {
     screen: RESOURCE_PALETTE_SCREENS.SEARCH,
+    activeFilter: 'all',
     scrollTop: 0,
     draft: {
       title: '',
@@ -40,6 +41,27 @@ export function changeResourceQuery(state, title) {
       selectedParent: null,
     },
     search: {
+      requestId: state.search.requestId + 1,
+      status: 'debouncing',
+      results: [],
+      unavailableSources: [],
+      error: null,
+      completedAt: null,
+      refreshing: false,
+    },
+    actionError: null,
+  };
+}
+
+export function changeResourceFilter(state, activeFilter) {
+  if (state.activeFilter === activeFilter) return state;
+
+  return {
+    ...state,
+    activeFilter,
+    scrollTop: 0,
+    search: {
+      ...state.search,
       requestId: state.search.requestId + 1,
       status: 'debouncing',
       results: [],

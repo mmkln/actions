@@ -50,6 +50,49 @@ test('renders a thought as an editorial quote card', () => {
   assert.doesNotMatch(markup, /canvas-card__body/);
 });
 
+test('renders an achievement as an editorial outcome card', () => {
+  const markup = cardView({
+    type: CARD_TYPES.ACHIEVEMENT,
+    title: 'Direction confirmed.',
+  });
+
+  assert.match(markup, /canvas-card--achievement/);
+  assert.match(markup, /achievement-card__header/);
+  assert.match(markup, /achievement-card__label/);
+  assert.match(markup, />Achievement</);
+  assert.match(markup, /achievement-card__title/);
+  assert.match(markup, /Direction confirmed\./);
+  assert.doesNotMatch(markup, /canvas-card__body/);
+});
+
+test('renders a task as an editorial action card', () => {
+  const markup = cardView({
+    type: CARD_TYPES.TASK,
+    title: 'Run five customer interviews',
+  });
+
+  assert.match(markup, /canvas-card--task/);
+  assert.match(markup, /task-card__header/);
+  assert.match(markup, /task-card__icon/);
+  assert.match(markup, /task-card__label/);
+  assert.match(markup, />Task</);
+  assert.match(markup, /task-card__title/);
+  assert.match(markup, />Run five customer interviews</);
+  assert.doesNotMatch(markup, /task-card__(?:verb|remainder)/);
+  assert.doesNotMatch(markup, /canvas-card__body/);
+});
+
+test('escapes the complete task title', () => {
+  const markup = cardView({
+    type: CARD_TYPES.TASK,
+    title: '<Run> five & more',
+  });
+
+  assert.match(markup, /&lt;Run&gt;/);
+  assert.match(markup, /five &amp; more/);
+  assert.doesNotMatch(markup, /<Run>/);
+});
+
 test('renders a discoverable edit action only for hydrated editable resources', () => {
   const editable = cardView({
     type: CARD_TYPES.THOUGHT,

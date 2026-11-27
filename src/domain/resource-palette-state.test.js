@@ -5,6 +5,7 @@ import { CARD_TYPE_CONFIG } from './card-types.js';
 import {
   beginResourceCreation,
   canSubmitResourceDraft,
+  changeResourceFilter,
   changeResourceQuery,
   chooseResourceKind,
   chooseResourceParent,
@@ -67,6 +68,29 @@ test('makes the draft available immediately while search is debouncing', () => {
   assert.equal(state.draft.title, 'Market direction');
   assert.equal(state.search.status, 'debouncing');
   assert.equal(state.search.requestId, 1);
+});
+
+test('filters search without changing the current query', () => {
+  const queried = changeResourceQuery(
+    createResourcePaletteState(),
+    'market',
+  );
+  const filtered = changeResourceFilter(queried, 'tasks');
+
+  assert.equal(filtered.activeFilter, 'tasks');
+  assert.equal(filtered.draft.title, 'market');
+  assert.equal(filtered.search.requestId, queried.search.requestId + 1);
+  assert.deepEqual(filtered.search.results, []);
+});
+
+test('keeps the active filter when the query changes', () => {
+  const filtered = changeResourceFilter(
+    createResourcePaletteState(),
+    'skopos',
+  );
+  const queried = changeResourceQuery(filtered, 'launch');
+
+  assert.equal(queried.activeFilter, 'skopos');
 });
 
 test('keeps the draft when search fails', () => {

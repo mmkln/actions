@@ -22,6 +22,30 @@ function thoughtArticleView({ title, config }) {
   `;
 }
 
+function achievementArticleView({ title, config }) {
+  return `
+    <article class="canvas-card canvas-card--achievement" data-card-type="achievement">
+      <header class="achievement-card__header">
+        <span class="achievement-card__icon" aria-hidden="true">${icon(config.icon)}</span>
+        <span class="achievement-card__label">${escapeHtml(config.label)}</span>
+      </header>
+      <p class="achievement-card__title">${escapeHtml(title)}</p>
+    </article>
+  `;
+}
+
+function taskArticleView({ title, config }) {
+  return `
+    <article class="canvas-card canvas-card--task" data-card-type="task">
+      <header class="task-card__header">
+        <span class="task-card__icon" aria-hidden="true">${icon(config.icon)}</span>
+        <span class="task-card__label">${escapeHtml(config.label)}</span>
+      </header>
+      <p class="task-card__title">${escapeHtml(title)}</p>
+    </article>
+  `;
+}
+
 function regularArticleView({ type, title, config }) {
   return `
     <article class="canvas-card canvas-card--${type}" data-card-type="${type}">
@@ -53,9 +77,12 @@ export function cardView({ type, title, editable = false }) {
   }
 
   const config = CARD_TYPE_CONFIG[type];
-  const article = type === 'thought'
-    ? thoughtArticleView({ title, config })
-    : regularArticleView({ type, title, config });
+  const articleView = {
+    thought: thoughtArticleView,
+    achievement: achievementArticleView,
+    task: taskArticleView,
+  }[type] ?? regularArticleView;
+  const article = articleView({ type, title, config });
 
   return `${article}${cardControlsView({ editable })}`;
 }

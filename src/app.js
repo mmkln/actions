@@ -27,12 +27,12 @@ import {
 } from './domain/card-types.js';
 import {
   getResourceCreationOptions,
-  getQuickActionProposal,
 } from './domain/resource-creation.js';
 import {
   RESOURCE_PALETTE_SCREENS,
   beginResourceCreation,
   canSubmitResourceDraft,
+  changeResourceFilter,
   changeResourceQuery,
   chooseResourceKind,
   chooseResourceParent,
@@ -43,6 +43,10 @@ import {
   returnFromResourceCreation,
   startResourceSearch,
 } from './domain/resource-palette-state.js';
+import {
+  RESOURCE_SEARCH_FILTERS,
+  resourceSearchFilter,
+} from './domain/resource-search-filters.js';
 import {
   beginResourcePlacement,
   cancelResourcePlacement,
@@ -154,6 +158,11 @@ function shellView() {
       <div class="composer" role="search" aria-label="Search and add resources" data-composer data-screen="search">
         <section class="resource-search-popover" role="dialog" aria-modal="true" aria-label="Find or create a resource" data-resource-search-popover hidden>
           <div class="resource-palette__screen" data-resource-search-screen>
+            <nav class="resource-search-filters" aria-label="Filter resources" data-resource-search-filters>
+              ${RESOURCE_SEARCH_FILTERS.map((filter) => `
+                <button class="resource-search-filter" type="button" data-resource-search-filter="${filter.id}" aria-pressed="${filter.id === 'all'}">${filter.label}</button>
+              `).join('')}
+            </nav>
             <p class="resource-search-popover__status" data-resource-search-status></p>
             <div class="resource-search-popover__results" id="resource-search-results" role="listbox" aria-label="Resources" data-resource-results></div>
             <button class="resource-palette__create-entry" type="button" data-resource-create-start hidden>
@@ -168,6 +177,16 @@ function shellView() {
               ${icon('checkmark')}
               <span data-resource-placement-summary-label></span>
             </div>
+            <footer class="resource-search-shortcuts" aria-hidden="true" data-resource-search-shortcuts>
+              <span>
+                <span class="resource-search-shortcuts__keys"><kbd>↑</kbd><kbd>↓</kbd></span>
+                Navigate
+              </span>
+              <span>
+                <kbd data-resource-place-key>Enter</kbd>
+                <span data-resource-primary-action-label>Place</span>
+              </span>
+            </footer>
           </div>
 
           <div class="resource-palette__screen" data-resource-type-screen hidden>
@@ -301,6 +320,13 @@ export function mountApp(root, {
     resourcePaletteBackdrop: root.querySelector('[data-resource-palette-backdrop]'),
     resourceSearchPopover: root.querySelector('[data-resource-search-popover]'),
     resourceSearchScreen: root.querySelector('[data-resource-search-screen]'),
+    resourceSearchFilters: root.querySelector('[data-resource-search-filters]'),
+    resourceSearchFilterButtons: [
+      ...root.querySelectorAll('[data-resource-search-filter]'),
+    ],
+    resourceSearchShortcuts: root.querySelector('[data-resource-search-shortcuts]'),
+    resourcePlaceKey: root.querySelector('[data-resource-place-key]'),
+    resourcePrimaryActionLabel: root.querySelector('[data-resource-primary-action-label]'),
     resourceTypeScreen: root.querySelector('[data-resource-type-screen]'),
     resourceConfigureScreen: root.querySelector('[data-resource-configure-screen]'),
     resourceSearch: root.querySelector('[data-resource-search]'),
@@ -354,7 +380,7 @@ export function mountApp(root, {
     user: null,
     resources: new Map(),
     resourcesLoading: false,
-    selectedResourceKey: null,
+    selectedSearchCommandKey: null,
     searchOpen: false,
     resourcePalette: createResourcePaletteState(),
     resourcePlacement: createResourcePlacementState(),
@@ -383,6 +409,7 @@ export function mountApp(root, {
     isApplePlatform ? '⌘' : 'Ctrl'
   );
   elements.resourceConfirmKey.textContent = isApplePlatform ? 'Return' : 'Enter';
+  elements.resourcePlaceKey.textContent = isApplePlatform ? 'Return' : 'Enter';
 
   function resourceKey(kind, resourceId) {
     return `${kind}:${resourceId}`;
@@ -939,22 +966,40 @@ export function mountApp(root, {
     );
   }
 
-  function selectFirstAvailableResource() {
-    const results = state.resourcePalette.search.results;
-    const selectedIsAvailable = results.some(
-      (resource) => (
-        resourceKey(resource.kind, resource.resource_id)
-          === state.selectedResourceKey
-        && !resourceIsOnCanvas(resource)
-      ),
+  const CREATE_SEARCH_COMMAND_KEY = 'create';
+
+  function canCreateCurrentSearchQuery() {
+    if (!state.resourcePalette.draft.title.trim()) return false;
+    return resourceCreationOptions().some(({ canCreate }) => canCreate);
+  }
+
+  function resourceSearchCommands() {
+    const commands = state.resourcePalette.search.results
+      .filter((resource) => !resourceIsOnCanvas(resource))
+      .map((resource) => ({
+        key: resourceKey(resource.kind, resource.resource_id),
+        type: 'resource',
+        resource,
+      }));
+
+    if (canCreateCurrentSearchQuery()) {
+      commands.push({
+        key: CREATE_SEARCH_COMMAND_KEY,
+        type: 'create',
+        resource: null,
+      });
+    }
+
+    return commands;
+  }
+
+  function selectFirstAvailableSearchCommand() {
+    const commands = resourceSearchCommands();
+    const selectionExists = commands.some(
+      ({ key }) => key === state.selectedSearchCommandKey,
     );
-    if (!selectedIsAvailable) {
-      const firstAvailable = results.find(
-        (resource) => !resourceIsOnCanvas(resource),
-      );
-      state.selectedResourceKey = firstAvailable
-        ? resourceKey(firstAvailable.kind, firstAvailable.resource_id)
-        : null;
+    if (!selectionExists) {
+      state.selectedSearchCommandKey = commands[0]?.key ?? null;
     }
   }
 
@@ -984,7 +1029,7 @@ export function mountApp(root, {
   function createResourceResult(resource) {
     const key = resourceKey(resource.kind, resource.resource_id);
     const added = resourceIsOnCanvas(resource);
-    const selected = key === state.selectedResourceKey;
+    const selected = key === state.selectedSearchCommandKey;
     const pending = state.resourcePlacement.pendingKey === key;
     const recent = state.resourcePlacement.recentKey === key;
     const button = document.createElement('button');
@@ -1031,12 +1076,12 @@ export function mountApp(root, {
 
     button.append(resourceIcon, copy, action);
     button.addEventListener('pointermove', () => {
-      if (added || state.selectedResourceKey === key) return;
-      state.selectedResourceKey = key;
+      if (added || state.selectedSearchCommandKey === key) return;
+      state.selectedSearchCommandKey = key;
       renderResourceSearch();
     });
     button.addEventListener('click', () => {
-      state.selectedResourceKey = key;
+      state.selectedSearchCommandKey = key;
       void addResource(resource);
     });
     return button;
@@ -1076,6 +1121,14 @@ export function mountApp(root, {
       palette.screen === RESOURCE_PALETTE_SCREENS.SEARCH
       && query
       && hasCreatableType
+    );
+    const createSelected = (
+      state.selectedSearchCommandKey === CREATE_SEARCH_COMMAND_KEY
+    );
+    elements.resourceCreateStart.classList.toggle('is-selected', createSelected);
+    elements.resourceCreateStart.setAttribute(
+      'aria-selected',
+      String(createSelected),
     );
     elements.resourceCreateStartTitle.textContent = `Create “${query}”…`;
     elements.resourceCreateHeading.textContent = `Create “${query}”`;
@@ -1156,6 +1209,34 @@ export function mountApp(root, {
     elements.resourceCreateNote.hidden = !note;
   }
 
+  function renderResourceSearchFilters() {
+    elements.resourceSearchFilterButtons.forEach((button) => {
+      const active = (
+        button.dataset.resourceSearchFilter
+        === state.resourcePalette.activeFilter
+      );
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  function selectedSearchCommand() {
+    return resourceSearchCommands().find(
+      ({ key }) => key === state.selectedSearchCommandKey,
+    ) ?? null;
+  }
+
+  function renderResourceSearchShortcuts() {
+    const command = selectedSearchCommand();
+    elements.resourcePrimaryActionLabel.textContent = (
+      command?.type === 'create' ? 'Create' : 'Place'
+    );
+    elements.resourceSearchShortcuts.classList.toggle(
+      'is-disabled',
+      !command,
+    );
+  }
+
   function renderResourceSearch() {
     if (
       state.searchOpen
@@ -1183,7 +1264,10 @@ export function mountApp(root, {
       return;
     }
 
+    selectFirstAvailableSearchCommand();
+    renderResourceSearchFilters();
     renderResourceCreation();
+    renderResourceSearchShortcuts();
     if (state.resourcePalette.screen !== RESOURCE_PALETTE_SCREENS.SEARCH) {
       syncResourceControls();
       return;
@@ -1197,7 +1281,7 @@ export function mountApp(root, {
     } else if (search.status === 'error') {
       elements.resourceSearchStatus.textContent = search.error.message;
     } else {
-      selectFirstAvailableResource();
+      selectFirstAvailableSearchCommand();
       elements.resourceSearchStatus.textContent = search.unavailableSources.length
         ? 'Some sources are temporarily unavailable.'
         : !search.results.length
@@ -1287,6 +1371,7 @@ export function mountApp(root, {
   async function searchResources({
     requestId,
     query,
+    kinds,
     signal,
     background = false,
   }) {
@@ -1301,6 +1386,7 @@ export function mountApp(root, {
     try {
       const payload = await catalogApi.search({
         query,
+        kinds,
         signal,
       });
       if (state.resourcePalette.search.requestId !== requestId) return;
@@ -1310,7 +1396,7 @@ export function mountApp(root, {
         payload,
         Date.now(),
       );
-      selectFirstAvailableResource();
+      selectFirstAvailableSearchCommand();
     } catch (error) {
       if (signal.aborted || error.name === 'AbortError') return;
       if (state.resourcePalette.search.requestId !== requestId) return;
@@ -1321,6 +1407,12 @@ export function mountApp(root, {
       );
     }
     renderResourceSearch();
+  }
+
+  function activeResourceSearchKinds() {
+    return resourceSearchFilter(
+      state.resourcePalette.activeFilter,
+    ).kinds;
   }
 
   function revalidateResourceSearch() {
@@ -1335,20 +1427,15 @@ export function mountApp(root, {
     void searchResources({
       requestId,
       query,
+      kinds: activeResourceSearchKinds(),
       signal: controller.signal,
       background: true,
     });
   }
 
-  function scheduleResourceSearch({ immediate = false } = {}) {
+  function queueCurrentResourceSearch({ immediate = false } = {}) {
     window.clearTimeout(searchTimer);
     searchAbortController?.abort();
-    state.searchOpen = true;
-    state.selectedResourceKey = null;
-    state.resourcePalette = changeResourceQuery(
-      state.resourcePalette,
-      elements.resourceSearch.value,
-    );
     const requestId = state.resourcePalette.search.requestId;
     const query = state.resourcePalette.draft.title.trim();
     const controller = new AbortController();
@@ -1357,6 +1444,7 @@ export function mountApp(root, {
     const run = () => searchResources({
       requestId,
       query,
+      kinds: activeResourceSearchKinds(),
       signal: controller.signal,
     });
     if (immediate) {
@@ -1364,6 +1452,16 @@ export function mountApp(root, {
       return;
     }
     searchTimer = window.setTimeout(() => void run(), 180);
+  }
+
+  function scheduleResourceSearch({ immediate = false } = {}) {
+    state.searchOpen = true;
+    state.selectedSearchCommandKey = null;
+    state.resourcePalette = changeResourceQuery(
+      state.resourcePalette,
+      elements.resourceSearch.value,
+    );
+    queueCurrentResourceSearch({ immediate });
   }
 
   function openResourceSearch() {
@@ -1409,33 +1507,39 @@ export function mountApp(root, {
   }
 
   function moveResourceSelection(direction) {
-    const available = state.resourcePalette.search.results.filter(
-      (resource) => !resourceIsOnCanvas(resource),
-    );
-    if (!available.length) return;
-    const currentIndex = available.findIndex(
-      (resource) => (
-        resourceKey(resource.kind, resource.resource_id)
-          === state.selectedResourceKey
-      ),
+    const commands = resourceSearchCommands();
+    if (!commands.length) return;
+    const currentIndex = commands.findIndex(
+      ({ key }) => key === state.selectedSearchCommandKey,
     );
     const nextIndex = currentIndex < 0
       ? 0
-      : (currentIndex + direction + available.length) % available.length;
-    state.selectedResourceKey = resourceKey(
-      available[nextIndex].kind,
-      available[nextIndex].resource_id,
-    );
+      : (currentIndex + direction + commands.length) % commands.length;
+    state.selectedSearchCommandKey = commands[nextIndex].key;
     renderResourceSearch();
+    window.requestAnimationFrame(() => {
+      elements.resourceSearchScreen
+        .querySelector('.is-selected')
+        ?.scrollIntoView({ block: 'nearest' });
+    });
   }
 
-  function selectedResource() {
-    return state.resourcePalette.search.results.find(
-      (resource) => (
-        resourceKey(resource.kind, resource.resource_id)
-          === state.selectedResourceKey
-      ),
-    ) ?? null;
+  function activateSelectedSearchCommand() {
+    const command = selectedSearchCommand();
+    if (!command) return;
+
+    if (command.type === 'resource') {
+      void addResource(command.resource);
+      return;
+    }
+
+    state.resourcePalette = beginResourceCreation(state.resourcePalette);
+    renderResourceSearch();
+    window.requestAnimationFrame(() => {
+      elements.resourceCreateKindButtons
+        .find((button) => !button.disabled)
+        ?.focus();
+    });
   }
 
   function returnToPreviousResourceScreen() {
@@ -1538,7 +1642,7 @@ export function mountApp(root, {
         } : {}),
       };
       renderCanvas();
-      selectFirstAvailableResource();
+      selectFirstAvailableSearchCommand();
     } catch (error) {
       if (resource && operation === 'create') {
         const key = resourceKey(resource.kind, resource.resource_id);
@@ -1565,7 +1669,7 @@ export function mountApp(root, {
             `Created in ${CARD_TYPE_CONFIG[resource.kind].sourceLabel}, but couldn’t place it on the canvas. Try again.`,
           ),
         };
-        state.selectedResourceKey = key;
+        state.selectedSearchCommandKey = key;
       } else {
         state.resourcePalette = {
           ...state.resourcePalette,
@@ -1614,21 +1718,6 @@ export function mountApp(root, {
         kind: proposal.kind,
         title: proposal.title,
         parent,
-      });
-      return payload.resource;
-    }, 'create');
-  }
-
-  function createQuickActionAndPlace() {
-    const proposal = getQuickActionProposal({
-      title: state.resourcePalette.draft.title,
-    });
-    if (!proposal?.canCreate) return Promise.resolve();
-
-    return placeResource(async () => {
-      const payload = await catalogApi.create({
-        kind: proposal.kind,
-        title: proposal.title,
       });
       return payload.resource;
     }, 'create');
@@ -1895,7 +1984,32 @@ export function mountApp(root, {
     scheduleResourceSearch();
     elements.resourceSearch.focus();
   });
+  elements.resourceSearchFilters.addEventListener('pointerdown', (event) => {
+    if (event.target.closest('[data-resource-search-filter]')) {
+      event.preventDefault();
+    }
+  });
+  elements.resourceSearchFilters.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-resource-search-filter]');
+    if (!button) return;
+
+    const nextPalette = changeResourceFilter(
+      state.resourcePalette,
+      button.dataset.resourceSearchFilter,
+    );
+    if (nextPalette === state.resourcePalette) return;
+
+    state.resourcePalette = nextPalette;
+    state.selectedSearchCommandKey = null;
+    queueCurrentResourceSearch({ immediate: true });
+  });
+  elements.resourceCreateStart.addEventListener('pointermove', () => {
+    if (state.selectedSearchCommandKey === CREATE_SEARCH_COMMAND_KEY) return;
+    state.selectedSearchCommandKey = CREATE_SEARCH_COMMAND_KEY;
+    renderResourceSearch();
+  });
   elements.resourceCreateStart.addEventListener('click', () => {
+    state.selectedSearchCommandKey = CREATE_SEARCH_COMMAND_KEY;
     state.resourcePalette = beginResourceCreation(state.resourcePalette);
     renderResourceSearch();
     window.requestAnimationFrame(() => {
@@ -1942,9 +2056,7 @@ export function mountApp(root, {
     }
     if (event.key === 'Enter') {
       event.preventDefault();
-      const resource = selectedResource();
-      if (resource) void addResource(resource);
-      else void createQuickActionAndPlace();
+      activateSelectedSearchCommand();
       return;
     }
     if (event.key === 'Escape') {
@@ -2027,7 +2139,7 @@ export function mountApp(root, {
     parentSearchGeneration += 1;
     state.resourcePalette = createResourcePaletteState();
     state.resourcePlacement = createResourcePlacementState();
-    state.selectedResourceKey = null;
+    state.selectedSearchCommandKey = null;
     elements.resourceSearch.value = '';
     renderResourceSearch();
     state.canvas = null;

@@ -414,6 +414,7 @@ export function mountApp(root, {
 
     const config = CARD_TYPE_CONFIG[resource.kind];
     elements.resourceEditorHeading.textContent = `Edit ${config.label}`;
+    elements.resourceEditorDelete.textContent = `Delete ${config.label.toLowerCase()}`;
     elements.resourceEditorInput.hidden = config.multiline;
     elements.resourceEditorTextarea.hidden = !config.multiline;
 

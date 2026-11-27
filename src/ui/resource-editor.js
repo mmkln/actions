@@ -1,10 +1,14 @@
+import { icon } from './icons.js';
+
 export function resourceEditorView() {
   return `
     <div class="resource-editor-backdrop" data-resource-editor-backdrop hidden>
       <section class="resource-editor" role="dialog" aria-modal="true" aria-labelledby="resource-editor-title">
         <header class="resource-editor__header">
           <h2 id="resource-editor-title" data-resource-editor-heading>Edit item</h2>
-          <button type="button" aria-label="Close editor" data-resource-editor-close>×</button>
+          <button class="icon-button resource-editor__close" type="button" aria-label="Close editor" data-resource-editor-close>
+            ${icon('close')}
+          </button>
         </header>
         <div class="resource-editor__field">
           <input type="text" aria-label="Title" autocomplete="off" data-resource-editor-input>
@@ -12,7 +16,7 @@ export function resourceEditorView() {
         </div>
         <p class="resource-editor__error" role="alert" data-resource-editor-error hidden></p>
         <footer class="resource-editor__footer">
-          <button class="resource-editor__delete" type="button" data-resource-editor-delete>Delete permanently…</button>
+          <button class="resource-editor__delete" type="button" data-resource-editor-delete>Delete item</button>
           <button class="resource-editor__save" type="button" data-resource-editor-save>Save</button>
         </footer>
       </section>

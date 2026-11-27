@@ -24,7 +24,7 @@ export function getResourceCreationOptions({
     const config = CARD_TYPE_CONFIG[kind];
     const source = config.source;
     const maximumLength = config.maximumTitleLength;
-    const duplicate = results.some((resource) => (
+    const duplicate = !config.parentKind && results.some((resource) => (
       resource.kind === kind
       && normalizeResourceTitle(resource.title) === normalizedTitle
     ));
@@ -35,6 +35,7 @@ export function getResourceCreationOptions({
       kind,
       title,
       source,
+      parentKind: config.parentKind,
       maximumLength,
       duplicate,
       tooLong,

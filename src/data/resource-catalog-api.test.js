@@ -21,6 +21,26 @@ test('searches the resource catalog through the Actions BFF', async () => {
   assert.equal(captured.options, undefined);
 });
 
+test('filters catalog searches to requested resource kinds', async () => {
+  let captured;
+  const api = createResourceCatalogApi({
+    request(path, options) {
+      captured = { path, options };
+      return Promise.resolve({ results: [] });
+    },
+  });
+
+  await api.search({
+    query: 'launch',
+    kinds: ['achievement', 'requirement'],
+  });
+
+  assert.equal(
+    captured.path,
+    '/catalog/search/?limit=20&q=launch&kinds=achievement%2Crequirement',
+  );
+});
+
 test('resolves mixed resource references with one batch request', async () => {
   let captured;
   const references = [
@@ -60,6 +80,32 @@ test('creates a source resource through the Actions BFF', async () => {
   assert.deepEqual(JSON.parse(captured.options.body), {
     kind: 'thought',
     title: 'A useful thought',
+  });
+});
+
+test('creates a dependent resource with a typed parent', async () => {
+  let captured;
+  const api = createResourceCatalogApi({
+    request(path, options) {
+      captured = { path, options };
+      return Promise.resolve({ resource: {} });
+    },
+  });
+  const parent = {
+    kind: 'achievement',
+    resource_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  };
+
+  await api.create({
+    kind: 'requirement',
+    title: 'Clear product direction',
+    parent,
+  });
+
+  assert.deepEqual(JSON.parse(captured.options.body), {
+    kind: 'requirement',
+    title: 'Clear product direction',
+    parent,
   });
 });
 

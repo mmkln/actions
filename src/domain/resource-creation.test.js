@@ -13,7 +13,7 @@ test('normalizes resource titles for exact duplicate detection', () => {
   );
 });
 
-test('offers task and thought creation while disabling an exact duplicate kind', () => {
+test('offers every creatable resource kind with hierarchy metadata', () => {
   const options = getResourceCreationOptions({
     query: 'Launch first version',
     results: [{ kind: 'task', title: 'launch  first version' }],
@@ -24,9 +24,15 @@ test('offers task and thought creation while disabling an exact duplicate kind',
   assert.equal(options[0].canCreate, false);
   assert.equal(options[1].kind, 'thought');
   assert.equal(options[1].canCreate, true);
-  assert.equal(options.some(({ kind }) => kind === 'achievement'), false);
-  assert.equal(options.some(({ kind }) => kind === 'requirement'), false);
-  assert.equal(options.some(({ kind }) => kind === 'gap'), false);
+  assert.equal(options.find(({ kind }) => kind === 'achievement').parentKind, null);
+  assert.equal(
+    options.find(({ kind }) => kind === 'requirement').parentKind,
+    'achievement',
+  );
+  assert.equal(
+    options.find(({ kind }) => kind === 'gap').parentKind,
+    'requirement',
+  );
 });
 
 test('uses source availability and source-specific title limits', () => {
@@ -37,5 +43,7 @@ test('uses source availability and source-specific title limits', () => {
 
   assert.equal(options[0].tooLong, true);
   assert.equal(options[1].sourceUnavailable, true);
-  assert.equal(options.every(({ canCreate }) => !canCreate), true);
+  assert.equal(options[0].canCreate, false);
+  assert.equal(options[1].canCreate, false);
+  assert.equal(options[2].canCreate, true);
 });

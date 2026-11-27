@@ -30,6 +30,9 @@ test('derives searchable, creatable, and external types from one registry', () =
   assert.deepEqual(CREATABLE_CARD_TYPES, [
     CARD_TYPES.TASK,
     CARD_TYPES.THOUGHT,
+    CARD_TYPES.ACHIEVEMENT,
+    CARD_TYPES.REQUIREMENT,
+    CARD_TYPES.GAP,
   ]);
   assert.equal(isExternalCardType(CARD_TYPES.ACHIEVEMENT), true);
   assert.equal(isExternalCardType(CARD_TYPES.REQUIREMENT), true);

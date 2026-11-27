@@ -16,6 +16,7 @@ export const CARD_TYPE_CONFIG = Object.freeze({
     sourceLabel: 'Majom',
     searchable: true,
     creatable: true,
+    parentKind: null,
     maximumTitleLength: 200,
   }),
   [CARD_TYPES.THOUGHT]: Object.freeze({
@@ -26,6 +27,7 @@ export const CARD_TYPE_CONFIG = Object.freeze({
     sourceLabel: 'Flying Thoughts',
     searchable: true,
     creatable: true,
+    parentKind: null,
     maximumTitleLength: 2000,
   }),
   [CARD_TYPES.ACHIEVEMENT]: Object.freeze({
@@ -35,7 +37,9 @@ export const CARD_TYPE_CONFIG = Object.freeze({
     source: 'majom',
     sourceLabel: 'Majom',
     searchable: true,
-    creatable: false,
+    creatable: true,
+    parentKind: null,
+    maximumTitleLength: 255,
   }),
   [CARD_TYPES.REQUIREMENT]: Object.freeze({
     label: 'Requirement',
@@ -44,7 +48,9 @@ export const CARD_TYPE_CONFIG = Object.freeze({
     source: 'majom',
     sourceLabel: 'Majom',
     searchable: true,
-    creatable: false,
+    creatable: true,
+    parentKind: CARD_TYPES.ACHIEVEMENT,
+    maximumTitleLength: 255,
   }),
   [CARD_TYPES.GAP]: Object.freeze({
     label: 'Gap',
@@ -53,7 +59,9 @@ export const CARD_TYPE_CONFIG = Object.freeze({
     source: 'majom',
     sourceLabel: 'Majom',
     searchable: true,
-    creatable: false,
+    creatable: true,
+    parentKind: CARD_TYPES.REQUIREMENT,
+    maximumTitleLength: 255,
   }),
   [CARD_TYPES.GOAL]: Object.freeze({
     label: 'Goal',
@@ -63,6 +71,7 @@ export const CARD_TYPE_CONFIG = Object.freeze({
     sourceLabel: null,
     searchable: false,
     creatable: false,
+    parentKind: null,
   }),
 });
 

@@ -29,6 +29,15 @@ import {
 import {
   getResourceCreationOptions,
 } from './domain/resource-creation.js';
+import {
+  RESOURCE_PALETTE_SCREENS,
+  beginResourceCreation,
+  canSubmitResourceDraft,
+  chooseResourceKind,
+  chooseResourceParent,
+  createResourcePaletteState,
+  returnFromResourceCreation,
+} from './domain/resource-palette-state.js';
 import { cardView } from './ui/card.js';
 import {
   getConnectionActionState,
@@ -115,39 +124,95 @@ function shellView() {
         <button type="button" data-canvas-action-undo>Undo</button>
       </div>
 
-      <div class="composer" role="search" aria-label="Search and add resources">
-        <div class="resource-search-popover" data-resource-search-popover hidden>
-          <p class="resource-search-popover__status" data-resource-search-status></p>
-          <div class="resource-search-popover__results" id="resource-search-results" role="listbox" aria-label="Resources" data-resource-results></div>
-          <section class="resource-create-panel" data-resource-create hidden>
-            <div class="resource-create-panel__main">
-              <span class="resource-create-panel__icon" data-resource-create-icon aria-hidden="true"></span>
-              <span class="resource-create-panel__copy">
-                <small data-resource-create-label>New task</small>
-                <strong data-resource-create-title></strong>
+      <div class="resource-palette-backdrop" data-resource-palette-backdrop hidden></div>
+      <div class="composer" role="search" aria-label="Search and add resources" data-composer data-screen="search">
+        <section class="resource-search-popover" role="dialog" aria-modal="true" aria-label="Find or create a resource" data-resource-search-popover hidden>
+          <div class="resource-palette__screen" data-resource-search-screen>
+            <p class="resource-search-popover__status" data-resource-search-status></p>
+            <div class="resource-search-popover__results" id="resource-search-results" role="listbox" aria-label="Resources" data-resource-results></div>
+            <button class="resource-palette__create-entry" type="button" data-resource-create-start hidden>
+              <span class="resource-palette__create-entry-icon" aria-hidden="true">${icon('plus')}</span>
+              <span>
+                <strong data-resource-create-start-title></strong>
+                <small>Choose Task, Thought, or a Skopos item</small>
               </span>
-            </div>
-            <div class="resource-create-panel__footer">
-              <div class="resource-create-kind" role="group" aria-label="New resource type" data-resource-create-kinds>
-                <button type="button" data-resource-create-kind="task" aria-pressed="true">
-                  ${icon('check')}<span>Task</span>
-                </button>
-                <button type="button" data-resource-create-kind="thought" aria-pressed="false">
-                  ${icon('spark')}<span>Thought</span>
-                </button>
+              <span class="resource-palette__chevron" aria-hidden="true">›</span>
+            </button>
+          </div>
+
+          <div class="resource-palette__screen" data-resource-type-screen hidden>
+            <header class="resource-palette__header">
+              <button type="button" aria-label="Back to search" data-resource-create-back>${icon('arrow-left')}</button>
+              <div>
+                <h2 data-resource-create-heading></h2>
+                <p>What are you creating?</p>
               </div>
-              <button class="resource-create-panel__action" type="button" data-resource-create-action>Create &amp; Place</button>
+              <kbd>Esc</kbd>
+            </header>
+            <div class="resource-palette__kind-list" data-resource-create-kinds>
+              <p>ACTIONS</p>
+              <button type="button" data-resource-create-kind="task">
+                <span class="resource-search-popover__result-icon is-task">${icon('check')}</span>
+                <span><strong>Task</strong><small>Majom · Standalone action</small></span><b>›</b>
+              </button>
+              <button type="button" data-resource-create-kind="thought">
+                <span class="resource-search-popover__result-icon is-thought">${icon('spark')}</span>
+                <span><strong>Thought</strong><small>Flying Thoughts · Standalone insight</small></span><b>›</b>
+              </button>
+              <p>SKOPOS STRUCTURE</p>
+              <button type="button" data-resource-create-kind="achievement">
+                <span class="resource-search-popover__result-icon is-achievement">${icon('achievement')}</span>
+                <span><strong>Achievement</strong><small>Top-level outcome</small></span><b>›</b>
+              </button>
+              <button type="button" data-resource-create-kind="requirement">
+                <span class="resource-search-popover__result-icon is-requirement">${icon('requirement')}</span>
+                <span><strong>Requirement</strong><small>Belongs to an Achievement</small></span><b>›</b>
+              </button>
+              <button type="button" data-resource-create-kind="gap">
+                <span class="resource-search-popover__result-icon is-gap">${icon('gap')}</span>
+                <span><strong>Gap</strong><small>Belongs to a Requirement</small></span><b>›</b>
+              </button>
             </div>
-            <p class="resource-create-panel__note" data-resource-create-note hidden></p>
-          </section>
+          </div>
+
+          <div class="resource-palette__screen" data-resource-configure-screen hidden>
+            <header class="resource-palette__header">
+              <button type="button" aria-label="Back to resource types" data-resource-configure-back>${icon('arrow-left')}</button>
+              <div>
+                <h2 data-resource-configure-heading></h2>
+                <p data-resource-configure-subtitle></p>
+              </div>
+              <kbd>Esc</kbd>
+            </header>
+            <div class="resource-palette__draft">
+              <label>TITLE</label>
+              <div class="resource-palette__title" data-resource-configure-title></div>
+              <section data-resource-parent-section hidden>
+                <label data-resource-parent-label></label>
+                <div class="resource-palette__parent-search">
+                  ${icon('search')}
+                  <input type="search" autocomplete="off" data-resource-parent-search>
+                </div>
+                <p class="resource-palette__parent-status" data-resource-parent-status></p>
+                <div class="resource-palette__parent-results" role="listbox" data-resource-parent-results></div>
+              </section>
+              <p class="resource-create-panel__note" data-resource-create-note hidden></p>
+            </div>
+            <footer class="resource-palette__footer">
+              <span><kbd>Esc</kbd> Back</span>
+              <button class="resource-create-panel__action" type="button" data-resource-create-action>Create &amp; Place</button>
+            </footer>
+          </div>
+        </section>
+        <div class="composer__bar">
+          <div class="composer__search-icon" aria-hidden="true">${icon('search')}</div>
+          <input class="composer__search" type="search" placeholder="Search resources…" autocomplete="off" aria-label="Search resources" aria-keyshortcuts="Control+K Meta+K" aria-controls="resource-search-results" aria-expanded="false" data-resource-search disabled>
+          <kbd class="composer__shortcut" aria-hidden="true" data-resource-search-shortcut>
+            <span data-resource-search-shortcut-modifier></span>
+            <span>K</span>
+          </kbd>
+          <button class="composer__clear" type="button" aria-label="Clear resource search" data-resource-search-clear hidden>${icon('close')}</button>
         </div>
-        <div class="composer__search-icon" aria-hidden="true">${icon('search')}</div>
-        <input class="composer__search" type="search" placeholder="Search resources…" autocomplete="off" aria-label="Search resources" aria-keyshortcuts="Control+K Meta+K" aria-controls="resource-search-results" aria-expanded="false" data-resource-search disabled>
-        <kbd class="composer__shortcut" aria-hidden="true" data-resource-search-shortcut>
-          <span data-resource-search-shortcut-modifier></span>
-          <span>K</span>
-        </kbd>
-        <button class="composer__clear" type="button" aria-label="Clear resource search" data-resource-search-clear hidden>${icon('close')}</button>
       </div>
     </main>
   `;
@@ -182,19 +247,33 @@ export function mountApp(root, {
     emptyTitle: root.querySelector('[data-empty-title]'),
     emptyCopy: root.querySelector('[data-empty-copy]'),
     emptyAction: root.querySelector('[data-empty-action]'),
+    composer: root.querySelector('[data-composer]'),
+    resourcePaletteBackdrop: root.querySelector('[data-resource-palette-backdrop]'),
     resourceSearchPopover: root.querySelector('[data-resource-search-popover]'),
+    resourceSearchScreen: root.querySelector('[data-resource-search-screen]'),
+    resourceTypeScreen: root.querySelector('[data-resource-type-screen]'),
+    resourceConfigureScreen: root.querySelector('[data-resource-configure-screen]'),
     resourceSearch: root.querySelector('[data-resource-search]'),
     resourceSearchShortcut: root.querySelector('[data-resource-search-shortcut]'),
     resourceSearchShortcutModifier: root.querySelector('[data-resource-search-shortcut-modifier]'),
     resourceSearchClear: root.querySelector('[data-resource-search-clear]'),
     resourceSearchStatus: root.querySelector('[data-resource-search-status]'),
     resourceResults: root.querySelector('[data-resource-results]'),
-    resourceCreate: root.querySelector('[data-resource-create]'),
-    resourceCreateIcon: root.querySelector('[data-resource-create-icon]'),
-    resourceCreateLabel: root.querySelector('[data-resource-create-label]'),
-    resourceCreateTitle: root.querySelector('[data-resource-create-title]'),
+    resourceCreateStart: root.querySelector('[data-resource-create-start]'),
+    resourceCreateStartTitle: root.querySelector('[data-resource-create-start-title]'),
+    resourceCreateHeading: root.querySelector('[data-resource-create-heading]'),
+    resourceCreateBack: root.querySelector('[data-resource-create-back]'),
     resourceCreateKinds: root.querySelector('[data-resource-create-kinds]'),
     resourceCreateKindButtons: [...root.querySelectorAll('[data-resource-create-kind]')],
+    resourceConfigureBack: root.querySelector('[data-resource-configure-back]'),
+    resourceConfigureHeading: root.querySelector('[data-resource-configure-heading]'),
+    resourceConfigureSubtitle: root.querySelector('[data-resource-configure-subtitle]'),
+    resourceConfigureTitle: root.querySelector('[data-resource-configure-title]'),
+    resourceParentSection: root.querySelector('[data-resource-parent-section]'),
+    resourceParentLabel: root.querySelector('[data-resource-parent-label]'),
+    resourceParentSearch: root.querySelector('[data-resource-parent-search]'),
+    resourceParentStatus: root.querySelector('[data-resource-parent-status]'),
+    resourceParentResults: root.querySelector('[data-resource-parent-results]'),
     resourceCreateAction: root.querySelector('[data-resource-create-action]'),
     resourceCreateNote: root.querySelector('[data-resource-create-note]'),
     connectionToolbar: root.querySelector('[data-connection-toolbar]'),
@@ -221,7 +300,7 @@ export function mountApp(root, {
     unavailableSources: [],
     selectedResourceKey: null,
     searchOpen: false,
-    resourceCreateKind: 'task',
+    resourcePalette: createResourcePaletteState(),
     resourceAction: null,
     connections: [],
     connectionEditor: null,
@@ -234,6 +313,8 @@ export function mountApp(root, {
   let viewportController = null;
   let searchTimer = null;
   let searchGeneration = 0;
+  let parentSearchTimer = null;
+  let parentSearchGeneration = 0;
   let hydrationGeneration = 0;
   let removalTimer = null;
 
@@ -751,7 +832,7 @@ export function mountApp(root, {
     if (added) {
       action.textContent = '✓ On canvas';
     } else {
-      action.innerHTML = icon('plus');
+      action.textContent = 'Place';
     }
 
     button.append(resourceIcon, copy, action);
@@ -775,59 +856,112 @@ export function mountApp(root, {
     });
   }
 
-  function reconcileResourceCreateKind(options = resourceCreationOptions()) {
-    const selected = options.find(({ kind }) => kind === state.resourceCreateKind);
-    if (selected?.canCreate) return;
-    const fallback = options.find(({ canCreate }) => canCreate)
-      ?? options.find(({ duplicate }) => !duplicate);
-    if (fallback) state.resourceCreateKind = fallback.kind;
-  }
-
   function selectedResourceCreationOption() {
     return resourceCreationOptions().find(
-      ({ kind }) => kind === state.resourceCreateKind,
+      ({ kind }) => kind === state.resourcePalette.selectedKind,
     ) ?? null;
   }
 
   function renderResourceCreation() {
+    const palette = state.resourcePalette;
     const options = resourceCreationOptions();
-    reconcileResourceCreateKind(options);
-    const proposal = options.find(
-      ({ kind }) => kind === state.resourceCreateKind,
+    const query = elements.resourceSearch.value.trim();
+    const proposal = selectedResourceCreationOption();
+    const hasCreatableType = options.some(({ canCreate }) => canCreate);
+
+    elements.composer.dataset.screen = palette.screen;
+    elements.resourceSearchScreen.hidden = (
+      palette.screen !== RESOURCE_PALETTE_SCREENS.SEARCH
     );
-    const hasCreatableType = options.some(({ duplicate }) => !duplicate);
-    const visible = (
-      state.searchOpen
+    elements.resourceTypeScreen.hidden = (
+      palette.screen !== RESOURCE_PALETTE_SCREENS.CHOOSE_TYPE
+    );
+    elements.resourceConfigureScreen.hidden = (
+      palette.screen !== RESOURCE_PALETTE_SCREENS.CONFIGURE
+    );
+
+    elements.resourceCreateStart.hidden = !(
+      palette.screen === RESOURCE_PALETTE_SCREENS.SEARCH
+      && query
       && !state.searchLoading
       && !state.searchError
-      && Boolean(proposal)
       && hasCreatableType
     );
-    elements.resourceCreate.hidden = !visible;
-    if (!visible) return;
-
-    const proposalConfig = CARD_TYPE_CONFIG[proposal.kind];
-    elements.resourceCreate.dataset.kind = proposal.kind;
-    elements.resourceCreateIcon.className = (
-      `resource-create-panel__icon is-${proposal.kind}`
-    );
-    elements.resourceCreateIcon.innerHTML = icon(proposalConfig.icon);
-    elements.resourceCreateLabel.textContent = (
-      `New ${proposalConfig.label.toLowerCase()}`
-    );
-    elements.resourceCreateTitle.textContent = proposal.title;
-    elements.resourceCreateAction.disabled = state.saving || !proposal.canCreate;
-    elements.resourceCreateAction.textContent = (
-      state.resourceAction === 'create' ? 'Creating…' : 'Create & Place'
-    );
+    elements.resourceCreateStartTitle.textContent = `Create “${query}”…`;
+    elements.resourceCreateHeading.textContent = `Create “${query}”`;
 
     elements.resourceCreateKindButtons.forEach((button) => {
       const option = options.find(({ kind }) => kind === button.dataset.resourceCreateKind);
-      const selected = option?.kind === proposal.kind;
-      button.setAttribute('aria-pressed', String(selected));
-      button.disabled = !option || option.duplicate || option.sourceUnavailable || option.tooLong;
+      button.disabled = !option || !option.canCreate;
+      button.title = option?.sourceUnavailable
+        ? `${CARD_TYPE_CONFIG[option.kind].sourceLabel} is temporarily unavailable.`
+        : option?.tooLong
+          ? `Maximum ${option.maximumLength} characters.`
+          : option?.duplicate
+            ? `This ${CARD_TYPE_CONFIG[option.kind].label.toLowerCase()} already exists.`
+            : '';
     });
 
+    if (palette.screen !== RESOURCE_PALETTE_SCREENS.CONFIGURE || !proposal) return;
+
+    const proposalConfig = CARD_TYPE_CONFIG[proposal.kind];
+    const parentConfig = proposalConfig.parentKind
+      ? CARD_TYPE_CONFIG[proposalConfig.parentKind]
+      : null;
+    elements.resourceConfigureHeading.textContent = `New ${proposalConfig.label}`;
+    elements.resourceConfigureSubtitle.textContent = proposalConfig.sourceLabel;
+    elements.resourceConfigureTitle.textContent = proposal.title;
+    elements.resourceParentSection.hidden = !parentConfig;
+
+    if (parentConfig) {
+      elements.resourceParentLabel.textContent = 'BELONGS TO';
+      elements.resourceParentSearch.placeholder = `Search ${parentConfig.pluralLabel.toLowerCase()}…`;
+      elements.resourceParentSearch.value = palette.parentQuery;
+      elements.resourceParentStatus.textContent = palette.parentLoading
+        ? 'Searching…'
+        : palette.parentError?.message
+          ?? (!palette.parentResults.length ? `No ${parentConfig.pluralLabel.toLowerCase()} found.` : '');
+      elements.resourceParentResults.replaceChildren(
+        ...palette.parentResults.map((resource) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'resource-palette__parent-result';
+          const selected = (
+            palette.selectedParent?.kind === resource.kind
+            && palette.selectedParent?.resource_id === resource.resource_id
+          );
+          button.classList.toggle('is-selected', selected);
+          button.setAttribute('role', 'option');
+          button.setAttribute('aria-selected', String(selected));
+          button.innerHTML = `
+            <span class="resource-search-popover__result-icon is-${resource.kind}">${icon(parentConfig.icon)}</span>
+            <span><strong></strong><small>${parentConfig.label} · Skopos</small></span>
+            <b>${selected ? '✓' : ''}</b>
+          `;
+          button.querySelector('strong').textContent = resource.title;
+          button.addEventListener('click', () => {
+            state.resourcePalette = chooseResourceParent(
+              state.resourcePalette,
+              resource,
+            );
+            renderResourceSearch();
+          });
+          return button;
+        }),
+      );
+    } else {
+      elements.resourceParentStatus.textContent = '';
+      elements.resourceParentResults.replaceChildren();
+    }
+
+    elements.resourceCreateAction.disabled = (
+      state.saving
+      || !proposal.canCreate
+      || !canSubmitResourceDraft(palette, CARD_TYPE_CONFIG)
+    );
+    elements.resourceCreateAction.textContent = (
+      state.resourceAction === 'create' ? 'Creating…' : 'Create & Place'
+    );
     let note = '';
     if (proposal.tooLong) {
       note = `${proposalConfig.pluralLabel} can contain up to ${proposal.maximumLength} characters.`;
@@ -843,14 +977,24 @@ export function mountApp(root, {
   function renderResourceSearch() {
     elements.resourceResults.replaceChildren();
     elements.resourceSearchPopover.hidden = !state.searchOpen;
+    elements.resourcePaletteBackdrop.hidden = !state.searchOpen;
+    elements.composer.classList.toggle('is-open', state.searchOpen);
     elements.resourceSearch.setAttribute(
       'aria-expanded',
       String(state.searchOpen),
     );
     syncResourceControls();
 
-    elements.resourceCreate.hidden = true;
-    if (!state.searchOpen) return;
+    if (!state.searchOpen) {
+      elements.composer.dataset.screen = RESOURCE_PALETTE_SCREENS.SEARCH;
+      return;
+    }
+
+    renderResourceCreation();
+    if (state.resourcePalette.screen !== RESOURCE_PALETTE_SCREENS.SEARCH) {
+      syncResourceControls();
+      return;
+    }
 
     if (state.searchLoading) {
       elements.resourceSearchStatus.textContent = 'Searching…';
@@ -859,7 +1003,7 @@ export function mountApp(root, {
     } else {
       selectFirstAvailableResource();
       const creationOptions = resourceCreationOptions();
-      const hasCreationCandidate = creationOptions.some(({ duplicate }) => !duplicate);
+      const hasCreationCandidate = creationOptions.some(({ canCreate }) => canCreate);
       elements.resourceSearchStatus.textContent = state.unavailableSources.length
         ? 'Some sources are temporarily unavailable.'
         : !state.searchResults.length && !hasCreationCandidate
@@ -886,8 +1030,60 @@ export function mountApp(root, {
       });
       elements.resourceResults.append(fragment);
     }
-    renderResourceCreation();
     syncResourceControls();
+  }
+
+  async function searchResourceParents() {
+    const parentKind = CARD_TYPE_CONFIG[
+      state.resourcePalette.selectedKind
+    ]?.parentKind;
+    if (!parentKind) return;
+
+    const generation = ++parentSearchGeneration;
+    state.resourcePalette = {
+      ...state.resourcePalette,
+      parentLoading: true,
+      parentError: null,
+    };
+    renderResourceSearch();
+    try {
+      const payload = await catalogApi.search({
+        query: state.resourcePalette.parentQuery.trim(),
+        kinds: [parentKind],
+      });
+      if (generation !== parentSearchGeneration) return;
+      state.resourcePalette = {
+        ...state.resourcePalette,
+        parentResults: payload.results ?? [],
+        parentError: null,
+      };
+    } catch (error) {
+      if (generation !== parentSearchGeneration) return;
+      state.resourcePalette = {
+        ...state.resourcePalette,
+        parentResults: [],
+        parentError: error,
+      };
+    } finally {
+      if (generation === parentSearchGeneration) {
+        state.resourcePalette = {
+          ...state.resourcePalette,
+          parentLoading: false,
+        };
+        renderResourceSearch();
+      }
+    }
+  }
+
+  function scheduleParentSearch() {
+    window.clearTimeout(parentSearchTimer);
+    state.resourcePalette = {
+      ...state.resourcePalette,
+      parentQuery: elements.resourceParentSearch.value,
+      selectedParent: null,
+    };
+    renderResourceSearch();
+    parentSearchTimer = window.setTimeout(searchResourceParents, 180);
   }
 
   async function searchResources() {
@@ -903,7 +1099,6 @@ export function mountApp(root, {
       if (generation !== searchGeneration) return;
       state.searchResults = payload.results ?? [];
       state.unavailableSources = payload.unavailable_sources ?? [];
-      reconcileResourceCreateKind();
       selectFirstAvailableResource();
     } catch (error) {
       if (generation !== searchGeneration) return;
@@ -929,6 +1124,7 @@ export function mountApp(root, {
   function openResourceSearch() {
     if (state.sessionStatus !== 'authenticated') return;
     closeAccountMenu();
+    state.resourcePalette = createResourcePaletteState();
     state.searchOpen = true;
     state.searchError = null;
     renderResourceSearch();
@@ -940,7 +1136,10 @@ export function mountApp(root, {
     state.searchOpen = false;
     state.searchLoading = false;
     searchGeneration += 1;
+    parentSearchGeneration += 1;
     window.clearTimeout(searchTimer);
+    window.clearTimeout(parentSearchTimer);
+    state.resourcePalette = createResourcePaletteState();
     renderResourceSearch();
   }
 
@@ -972,6 +1171,18 @@ export function mountApp(root, {
           === state.selectedResourceKey
       ),
     ) ?? null;
+  }
+
+  function returnToPreviousResourceScreen() {
+    state.resourcePalette = returnFromResourceCreation(state.resourcePalette);
+    renderResourceSearch();
+    window.requestAnimationFrame(() => {
+      if (state.resourcePalette.screen === RESOURCE_PALETTE_SCREENS.SEARCH) {
+        elements.resourceSearch.focus();
+      } else {
+        elements.resourceCreateKindButtons.find((button) => !button.disabled)?.focus();
+      }
+    });
   }
 
   async function placeResource(resolveNextResource, operation) {
@@ -1049,11 +1260,23 @@ export function mountApp(root, {
 
   function createResourceAndPlace() {
     const proposal = selectedResourceCreationOption();
-    if (!proposal?.canCreate) return Promise.resolve();
+    if (
+      !proposal?.canCreate
+      || !canSubmitResourceDraft(state.resourcePalette, CARD_TYPE_CONFIG)
+    ) return Promise.resolve();
+
+    const parentResource = state.resourcePalette.selectedParent;
+    const parent = parentResource
+      ? {
+          kind: parentResource.kind,
+          resource_id: parentResource.resource_id,
+        }
+      : null;
     return placeResource(async () => {
       const payload = await catalogApi.create({
         kind: proposal.kind,
         title: proposal.title,
+        parent,
       });
       return payload.resource;
     }, 'create');
@@ -1306,12 +1529,34 @@ export function mountApp(root, {
     scheduleResourceSearch();
     elements.resourceSearch.focus();
   });
+  elements.resourceCreateStart.addEventListener('click', () => {
+    state.resourcePalette = beginResourceCreation(state.resourcePalette);
+    renderResourceSearch();
+    window.requestAnimationFrame(() => {
+      elements.resourceCreateKindButtons.find((button) => !button.disabled)?.focus();
+    });
+  });
+  elements.resourceCreateBack.addEventListener('click', returnToPreviousResourceScreen);
+  elements.resourceConfigureBack.addEventListener('click', returnToPreviousResourceScreen);
   elements.resourceCreateKinds.addEventListener('click', (event) => {
     const button = event.target.closest('[data-resource-create-kind]');
     if (!button || button.disabled) return;
-    state.resourceCreateKind = button.dataset.resourceCreateKind;
+    state.resourcePalette = chooseResourceKind(
+      state.resourcePalette,
+      button.dataset.resourceCreateKind,
+    );
     renderResourceSearch();
+    const parentKind = CARD_TYPE_CONFIG[
+      state.resourcePalette.selectedKind
+    ].parentKind;
+    if (parentKind) {
+      void searchResourceParents();
+      window.requestAnimationFrame(() => elements.resourceParentSearch.focus());
+    } else {
+      window.requestAnimationFrame(() => elements.resourceCreateAction.focus());
+    }
   });
+  elements.resourceParentSearch.addEventListener('input', scheduleParentSearch);
   elements.resourceCreateAction.addEventListener('click', () => {
     void createResourceAndPlace();
   });
@@ -1325,7 +1570,9 @@ export function mountApp(root, {
       event.preventDefault();
       const resource = selectedResource();
       if (resource) void addResource(resource);
-      else void createResourceAndPlace();
+      else if (!elements.resourceCreateStart.hidden) {
+        elements.resourceCreateStart.click();
+      }
       return;
     }
     if (event.key === 'Escape') {
@@ -1419,7 +1666,11 @@ export function mountApp(root, {
     }
     if (event.key === 'Escape') {
       if (state.searchOpen) {
-        closeResourceSearch();
+        if (state.resourcePalette.screen === RESOURCE_PALETTE_SCREENS.SEARCH) {
+          closeResourceSearch();
+        } else {
+          returnToPreviousResourceScreen();
+        }
         return;
       }
       closeAccountMenu();

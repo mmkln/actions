@@ -7,6 +7,7 @@ export const RESOURCE_PALETTE_SCREENS = Object.freeze({
 export function createResourcePaletteState() {
   return {
     screen: RESOURCE_PALETTE_SCREENS.SEARCH,
+    scrollTop: 0,
     draft: {
       title: '',
       selectedKind: null,
@@ -18,6 +19,8 @@ export function createResourcePaletteState() {
       results: [],
       unavailableSources: [],
       error: null,
+      completedAt: null,
+      refreshing: false,
     },
     parentQuery: '',
     parentResults: [],
@@ -42,6 +45,8 @@ export function changeResourceQuery(state, title) {
       results: [],
       unavailableSources: [],
       error: null,
+      completedAt: null,
+      refreshing: false,
     },
     actionError: null,
   };
@@ -58,7 +63,12 @@ export function startResourceSearch(state, requestId) {
   };
 }
 
-export function finishResourceSearch(state, requestId, payload) {
+export function finishResourceSearch(
+  state,
+  requestId,
+  payload,
+  completedAt = Date.now(),
+) {
   if (state.search.requestId !== requestId) return state;
   return {
     ...state,
@@ -68,12 +78,24 @@ export function finishResourceSearch(state, requestId, payload) {
       results: payload.results ?? [],
       unavailableSources: payload.unavailable_sources ?? [],
       error: null,
+      completedAt,
+      refreshing: false,
     },
   };
 }
 
 export function failResourceSearch(state, requestId, error) {
   if (state.search.requestId !== requestId) return state;
+  if (state.search.refreshing && state.search.results.length) {
+    return {
+      ...state,
+      search: {
+        ...state.search,
+        status: 'success',
+        refreshing: false,
+      },
+    };
+  }
   return {
     ...state,
     search: {
@@ -82,6 +104,19 @@ export function failResourceSearch(state, requestId, error) {
       results: [],
       unavailableSources: error.payload?.unavailable_sources ?? [],
       error,
+      refreshing: false,
+    },
+  };
+}
+
+export function refreshResourceSearch(state) {
+  return {
+    ...state,
+    search: {
+      ...state.search,
+      requestId: state.search.requestId + 1,
+      refreshing: true,
+      error: null,
     },
   };
 }

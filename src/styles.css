@@ -57,10 +57,10 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --app-background: #0b0a11;
-  --app-gradient-one: rgba(85, 58, 158, 0.14);
-  --app-gradient-two: rgba(36, 85, 126, 0.11);
-  --app-gradient-three: rgba(115, 76, 163, 0.055);
+  --app-background: #0b0810;
+  --app-gradient-one: rgba(71, 36, 78, 0.17);
+  --app-gradient-two: rgba(118, 43, 30, 0.1);
+  --app-gradient-three: rgba(72, 44, 96, 0.12);
   --texture-dot: rgba(208, 196, 255, 0.32);
   --surface-translucent: rgba(29, 27, 39, 0.78);
   --surface: rgba(29, 27, 39, 0.9);
@@ -138,6 +138,14 @@ button:disabled {
   transition: background-color 180ms ease, color 180ms ease;
 }
 
+:root[data-theme="dark"] .app-shell {
+  background:
+    radial-gradient(72rem 54rem at 8% 8%, var(--app-gradient-one), transparent 64%),
+    radial-gradient(54rem 40rem at 72% 44%, var(--app-gradient-two), transparent 68%),
+    radial-gradient(72rem 54rem at 16% 96%, var(--app-gradient-three), transparent 66%),
+    var(--app-background);
+}
+
 :root[data-theme="dark"] .app-shell::after {
   content: "";
   position: absolute;
@@ -145,9 +153,9 @@ button:disabled {
   inset: 0;
   pointer-events: none;
   background: radial-gradient(
-    ellipse at center,
-    transparent 36%,
-    rgba(0, 0, 0, 0.18) 100%
+    ellipse at 52% 46%,
+    transparent 30%,
+    rgba(0, 0, 0, 0.28) 100%
   );
 }
 
@@ -921,9 +929,11 @@ button:disabled {
   position: relative;
   isolation: isolate;
   display: grid;
-  width: 400px;
-  height: 140px;
-  max-width: none;
+  width: fit-content;
+  min-width: 180px;
+  max-width: 400px;
+  min-height: 109px;
+  height: auto;
   max-height: none;
   align-content: start;
   gap: 13px;
@@ -1002,6 +1012,8 @@ button:disabled {
 
 .thought-card__quote {
   display: -webkit-box;
+  width: fit-content;
+  max-width: 350px;
   margin: 0;
   overflow: hidden;
   color: var(--thought-card-ink);
@@ -1011,9 +1023,9 @@ button:disabled {
   font-weight: 600;
   line-height: 1.08;
   letter-spacing: -0.035em;
-  text-wrap: balance;
+  text-wrap: pretty;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 4;
 }
 
 .canvas-card--thought:hover {

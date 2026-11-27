@@ -38,6 +38,7 @@ import {
   createResourcePaletteState,
   failResourceSearch,
   finishResourceSearch,
+  refreshResourceSearch,
   returnFromResourceCreation,
   startResourceSearch,
 } from './domain/resource-palette-state.js';
@@ -56,6 +57,8 @@ import {
 } from './ui/connection-action-button.js';
 import { icon } from './ui/icons.js';
 import { resourceEditorView } from './ui/resource-editor.js';
+
+const RESOURCE_SEARCH_TTL_MS = 60_000;
 
 function shellView() {
   return `
@@ -713,15 +716,16 @@ export function mountApp(root, {
 
   function planResourceInsertion(resource) {
     const bounds = elements.canvasViewport.getBoundingClientRect();
-    const candidateGeometry = canvasCardGeometry(resource.kind);
+    const candidateGeometry = canvasCardGeometry(resource.kind, resource.title);
     const obstacles = (state.canvas?.items ?? []).map((item) => {
+      const card = cardElements.get(item.id)?.querySelector('.canvas-card');
       const geometry = canvasCardGeometry(item.kind);
       return {
         id: item.id,
         x: item.x,
         y: item.y,
-        width: geometry.width,
-        height: geometry.height,
+        width: card?.offsetWidth || geometry.width,
+        height: card?.offsetHeight || geometry.height,
       };
     });
     const desired = viewportController.clientToWorld({
@@ -1081,6 +1085,16 @@ export function mountApp(root, {
   }
 
   function renderResourceSearch() {
+    if (
+      state.searchOpen
+      && state.resourcePalette.screen === RESOURCE_PALETTE_SCREENS.SEARCH
+      && elements.resourceResults.childElementCount > 0
+    ) {
+      state.resourcePalette = {
+        ...state.resourcePalette,
+        scrollTop: elements.resourceResults.scrollTop,
+      };
+    }
     elements.resourceResults.replaceChildren();
     elements.resourceSearchPopover.hidden = !state.searchOpen;
     elements.resourcePaletteBackdrop.hidden = !state.searchOpen;
@@ -1136,6 +1150,7 @@ export function mountApp(root, {
         fragment.append(group);
       });
       elements.resourceResults.append(fragment);
+      elements.resourceResults.scrollTop = state.resourcePalette.scrollTop;
     }
     syncResourceControls();
   }
@@ -1196,13 +1211,20 @@ export function mountApp(root, {
     parentSearchTimer = window.setTimeout(searchResourceParents, 180);
   }
 
-  async function searchResources({ requestId, query, signal }) {
+  async function searchResources({
+    requestId,
+    query,
+    signal,
+    background = false,
+  }) {
     if (state.resourcePalette.search.requestId !== requestId) return;
-    state.resourcePalette = startResourceSearch(
-      state.resourcePalette,
-      requestId,
-    );
-    renderResourceSearch();
+    if (!background) {
+      state.resourcePalette = startResourceSearch(
+        state.resourcePalette,
+        requestId,
+      );
+      renderResourceSearch();
+    }
     try {
       const payload = await catalogApi.search({
         query,
@@ -1213,6 +1235,7 @@ export function mountApp(root, {
         state.resourcePalette,
         requestId,
         payload,
+        Date.now(),
       );
       selectFirstAvailableResource();
     } catch (error) {
@@ -1225,6 +1248,23 @@ export function mountApp(root, {
       );
     }
     renderResourceSearch();
+  }
+
+  function revalidateResourceSearch() {
+    window.clearTimeout(searchTimer);
+    searchAbortController?.abort();
+    state.resourcePalette = refreshResourceSearch(state.resourcePalette);
+    const requestId = state.resourcePalette.search.requestId;
+    const query = state.resourcePalette.draft.title.trim();
+    const controller = new AbortController();
+    searchAbortController = controller;
+    renderResourceSearch();
+    void searchResources({
+      requestId,
+      query,
+      signal: controller.signal,
+      background: true,
+    });
   }
 
   function scheduleResourceSearch({ immediate = false } = {}) {
@@ -1256,20 +1296,42 @@ export function mountApp(root, {
   function openResourceSearch() {
     if (state.sessionStatus !== 'authenticated') return;
     closeAccountMenu();
-    state.resourcePalette = createResourcePaletteState();
     state.searchOpen = true;
-    scheduleResourceSearch({ immediate: true });
-    window.requestAnimationFrame(() => elements.resourceSearch.focus());
+    elements.resourceSearch.value = state.resourcePalette.draft.title;
+    renderResourceSearch();
+
+    const search = state.resourcePalette.search;
+    const neverLoaded = search.status === 'idle';
+    const failedWithoutResults = search.status === 'error' && !search.results.length;
+    const stale = (
+      search.completedAt !== null
+      && Date.now() - search.completedAt > RESOURCE_SEARCH_TTL_MS
+    );
+
+    if (neverLoaded || failedWithoutResults) {
+      scheduleResourceSearch({ immediate: true });
+    } else if (stale && !search.refreshing) {
+      revalidateResourceSearch();
+    }
+
+    window.requestAnimationFrame(() => {
+      elements.resourceResults.scrollTop = state.resourcePalette.scrollTop;
+      elements.resourceSearch.focus();
+    });
   }
 
   function closeResourceSearch() {
+    if (!state.searchOpen) return;
+    if (
+      state.resourcePalette.screen === RESOURCE_PALETTE_SCREENS.SEARCH
+      && elements.resourceResults.childElementCount > 0
+    ) {
+      state.resourcePalette = {
+        ...state.resourcePalette,
+        scrollTop: elements.resourceResults.scrollTop,
+      };
+    }
     state.searchOpen = false;
-    parentSearchGeneration += 1;
-    window.clearTimeout(searchTimer);
-    window.clearTimeout(parentSearchTimer);
-    searchAbortController?.abort();
-    searchAbortController = null;
-    state.resourcePalette = createResourcePaletteState();
     renderResourceSearch();
   }
 
@@ -1356,10 +1418,43 @@ export function mountApp(root, {
         resourceKey(resource.kind, resource.resource_id),
         resource,
       );
+      const placedKey = resourceKey(resource.kind, resource.resource_id);
+      state.resourcePalette = {
+        ...state.resourcePalette,
+        scrollTop: (
+          state.resourcePalette.screen === RESOURCE_PALETTE_SCREENS.SEARCH
+          && elements.resourceResults.childElementCount > 0
+        )
+          ? elements.resourceResults.scrollTop
+          : state.resourcePalette.scrollTop,
+        ...(operation === 'create' ? {
+          screen: RESOURCE_PALETTE_SCREENS.SEARCH,
+          draft: {
+            ...state.resourcePalette.draft,
+            selectedKind: null,
+            selectedParent: null,
+          },
+          parentQuery: '',
+          parentResults: [],
+          parentLoading: false,
+          parentError: null,
+          search: {
+            ...state.resourcePalette.search,
+            status: 'success',
+            results: [
+              resource,
+              ...state.resourcePalette.search.results.filter((item) => (
+                resourceKey(item.kind, item.resource_id) !== placedKey
+              )),
+            ],
+            error: null,
+            completedAt: Date.now(),
+            refreshing: false,
+          },
+        } : {}),
+      };
       renderCanvas();
-      elements.resourceSearch.value = '';
-      state.selectedResourceKey = null;
-      closeResourceSearch();
+      selectFirstAvailableResource();
     } catch (error) {
       if (resource && operation === 'create') {
         const key = resourceKey(resource.kind, resource.resource_id);
@@ -1809,6 +1904,15 @@ export function mountApp(root, {
     elements.accountButton.disabled = true;
     await authSession.signOut();
     closeResourceSearch();
+    window.clearTimeout(searchTimer);
+    window.clearTimeout(parentSearchTimer);
+    searchAbortController?.abort();
+    searchAbortController = null;
+    parentSearchGeneration += 1;
+    state.resourcePalette = createResourcePaletteState();
+    state.selectedResourceKey = null;
+    elements.resourceSearch.value = '';
+    renderResourceSearch();
     state.canvas = null;
     state.connections = [];
     state.connectionEditor = null;

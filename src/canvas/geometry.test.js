@@ -121,8 +121,16 @@ test('uses maximum task geometry as a safe fallback', () => {
 test('adapts requirement geometry to its title', () => {
   assert.deepEqual(canvasCardGeometry('requirement', 'Validated'), {
     width: 250,
-    height: 128,
+    height: 96,
   });
+
+  assert.deepEqual(
+    canvasCardGeometry('requirement', 'Customer demand is validated'),
+    {
+      width: 350,
+      height: 124,
+    },
+  );
 
   assert.deepEqual(
     canvasCardGeometry(

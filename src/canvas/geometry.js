@@ -50,7 +50,7 @@ export const GAP_CARD_LAYOUT = Object.freeze({
 export const REQUIREMENT_CARD_LAYOUT = Object.freeze({
   minWidth: 250,
   maxWidth: 350,
-  minHeight: 128,
+  minHeight: 96,
   paddingInline: 26,
   paddingTop: 20,
   paddingBottom: 22,

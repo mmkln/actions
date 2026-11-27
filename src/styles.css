@@ -1399,7 +1399,7 @@ button:disabled {
   width: fit-content;
   min-width: var(--requirement-card-min-width, 250px);
   max-width: var(--requirement-card-max-width, 350px);
-  min-height: var(--requirement-card-min-height, 128px);
+  min-height: var(--requirement-card-min-height, 96px);
   height: auto;
   max-height: none;
   grid-template-columns:

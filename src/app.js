@@ -43,6 +43,13 @@ import {
   startResourceSearch,
 } from './domain/resource-palette-state.js';
 import {
+  beginResourcePlacement,
+  cancelResourcePlacement,
+  clearRecentPlacement,
+  completeResourcePlacement,
+  createResourcePlacementState,
+} from './domain/resource-placement-state.js';
+import {
   beginResourceEditorSave,
   canSaveResourceEditor,
   changeResourceEditorTitle,
@@ -155,6 +162,10 @@ function shellView() {
               </span>
               <span class="resource-palette__chevron" aria-hidden="true">›</span>
             </button>
+            <div class="resource-placement-summary" role="status" aria-live="polite" data-resource-placement-summary hidden>
+              ${icon('checkmark')}
+              <span data-resource-placement-summary-label></span>
+            </div>
           </div>
 
           <div class="resource-palette__screen" data-resource-type-screen hidden>
@@ -276,6 +287,8 @@ export function mountApp(root, {
     resourceSearchClear: root.querySelector('[data-resource-search-clear]'),
     resourceSearchStatus: root.querySelector('[data-resource-search-status]'),
     resourceResults: root.querySelector('[data-resource-results]'),
+    resourcePlacementSummary: root.querySelector('[data-resource-placement-summary]'),
+    resourcePlacementSummaryLabel: root.querySelector('[data-resource-placement-summary-label]'),
     resourceCreateStart: root.querySelector('[data-resource-create-start]'),
     resourceCreateStartTitle: root.querySelector('[data-resource-create-start-title]'),
     resourceCreateHeading: root.querySelector('[data-resource-create-heading]'),
@@ -321,6 +334,7 @@ export function mountApp(root, {
     selectedResourceKey: null,
     searchOpen: false,
     resourcePalette: createResourcePaletteState(),
+    resourcePlacement: createResourcePlacementState(),
     resourceAction: null,
     connections: [],
     connectionEditor: null,
@@ -338,6 +352,7 @@ export function mountApp(root, {
   let parentSearchGeneration = 0;
   let hydrationGeneration = 0;
   let removalTimer = null;
+  let placementFeedbackTimer = null;
 
   const platform = navigator.userAgentData?.platform ?? navigator.platform ?? '';
   elements.resourceSearchShortcutModifier.textContent = (
@@ -918,10 +933,35 @@ export function mountApp(root, {
     }
   }
 
+  function renderPlacementSummary() {
+    const count = state.resourcePlacement.sessionKeys.length;
+    elements.resourcePlacementSummary.hidden = count === 0;
+    elements.resourcePlacementSummaryLabel.textContent = (
+      `${count} ${count === 1 ? 'item' : 'items'} added`
+    );
+  }
+
+  function showCompletedPlacement(key) {
+    window.clearTimeout(placementFeedbackTimer);
+    state.resourcePlacement = completeResourcePlacement(
+      state.resourcePlacement,
+      key,
+    );
+    placementFeedbackTimer = window.setTimeout(() => {
+      state.resourcePlacement = clearRecentPlacement(
+        state.resourcePlacement,
+        key,
+      );
+      renderResourceSearch();
+    }, 1_200);
+  }
+
   function createResourceResult(resource) {
     const key = resourceKey(resource.kind, resource.resource_id);
     const added = resourceIsOnCanvas(resource);
     const selected = key === state.selectedResourceKey;
+    const pending = state.resourcePlacement.pendingKey === key;
+    const recent = state.resourcePlacement.recentKey === key;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'resource-search-popover__result';
@@ -934,7 +974,11 @@ export function mountApp(root, {
         : `Add ${resource.title} to canvas`,
     );
     button.classList.toggle('is-selected', selected);
+    button.classList.toggle('is-added', added);
+    button.classList.toggle('is-pending', pending);
+    button.classList.toggle('is-recent', recent);
     button.disabled = added || state.saving;
+    button.setAttribute('aria-busy', String(pending));
 
     const resourceIcon = document.createElement('span');
     resourceIcon.className = `resource-search-popover__result-icon is-${resource.kind}`;
@@ -951,10 +995,13 @@ export function mountApp(root, {
     const action = document.createElement('span');
     action.className = 'resource-search-popover__result-action';
     action.classList.toggle('is-added', added);
+    action.setAttribute('aria-hidden', 'true');
     if (added) {
-      action.textContent = '✓ On canvas';
+      action.innerHTML = `${icon('checkmark')}<span>Added</span>`;
+    } else if (pending) {
+      action.innerHTML = '<span class="resource-placement-spinner"></span>';
     } else {
-      action.textContent = 'Place';
+      action.innerHTML = icon('plus');
     }
 
     button.append(resourceIcon, copy, action);
@@ -1104,6 +1151,7 @@ export function mountApp(root, {
       String(state.searchOpen),
     );
     syncResourceControls();
+    renderPlacementSummary();
 
     if (!state.searchOpen) {
       elements.composer.dataset.screen = RESOURCE_PALETTE_SCREENS.SEARCH;
@@ -1377,11 +1425,19 @@ export function mountApp(root, {
     });
   }
 
-  async function placeResource(resolveNextResource, operation) {
+  async function placeResource(
+    resolveNextResource,
+    operation,
+    initialKey = null,
+  ) {
     if (state.saving) return;
 
     state.saving = true;
     state.resourceAction = operation;
+    state.resourcePlacement = beginResourcePlacement(
+      state.resourcePlacement,
+      initialKey,
+    );
     state.resourcePalette = {
       ...state.resourcePalette,
       actionError: null,
@@ -1390,6 +1446,7 @@ export function mountApp(root, {
     syncResourceControls();
     renderResourceSearch();
     let resource = null;
+    let placementCompleted = false;
     try {
       resource = await resolveNextResource();
       if (!resource || resourceIsOnCanvas(resource)) return;
@@ -1419,6 +1476,8 @@ export function mountApp(root, {
         resource,
       );
       const placedKey = resourceKey(resource.kind, resource.resource_id);
+      showCompletedPlacement(placedKey);
+      placementCompleted = true;
       state.resourcePalette = {
         ...state.resourcePalette,
         scrollTop: (
@@ -1489,6 +1548,11 @@ export function mountApp(root, {
         };
       }
     } finally {
+      if (!placementCompleted) {
+        state.resourcePlacement = cancelResourcePlacement(
+          state.resourcePlacement,
+        );
+      }
       state.saving = false;
       state.resourceAction = null;
       delete root.dataset.saving;
@@ -1499,7 +1563,11 @@ export function mountApp(root, {
 
   function addResource(resource) {
     if (resourceIsOnCanvas(resource)) return Promise.resolve();
-    return placeResource(() => Promise.resolve(resource), 'add');
+    return placeResource(
+      () => Promise.resolve(resource),
+      'add',
+      resourceKey(resource.kind, resource.resource_id),
+    );
   }
 
   function createResourceAndPlace() {
@@ -1906,10 +1974,13 @@ export function mountApp(root, {
     closeResourceSearch();
     window.clearTimeout(searchTimer);
     window.clearTimeout(parentSearchTimer);
+    window.clearTimeout(placementFeedbackTimer);
+    placementFeedbackTimer = null;
     searchAbortController?.abort();
     searchAbortController = null;
     parentSearchGeneration += 1;
     state.resourcePalette = createResourcePaletteState();
+    state.resourcePlacement = createResourcePlacementState();
     state.selectedResourceKey = null;
     elements.resourceSearch.value = '';
     renderResourceSearch();

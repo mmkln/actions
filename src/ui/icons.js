@@ -7,6 +7,7 @@ const paths = {
   requirement: '<path d="M9 6h10M9 12h10M9 18h10"/><path d="m4 6 1.3 1.3 2.5-2.5M4 12l1.3 1.3 2.5-2.5M4 18l1.3 1.3 2.5-2.5"/>',
   gap: '<path d="M4 12h6M14 12h6"/><path d="m7 9 3 3-3 3M17 9l-3 3 3 3"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  checkmark: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   minus: '<path d="M5 12h14"/>',
   edit: '<path d="M4 20h4l10.5-10.5a2.83 2.83 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.25"/><path d="m15.2 15.2 4.05 4.05"/>',

@@ -9,6 +9,7 @@ import {
 } from './canvas/connections.js';
 import {
   CANVAS_INSERTION_GAP,
+  EDITORIAL_CARD_CSS_VARIABLES,
   canvasCardGeometry,
 } from './canvas/geometry.js';
 import { syncCanvasGrid } from './canvas/grid-projection.js';
@@ -293,6 +294,9 @@ export function mountApp(root, {
   authSession,
   themeController,
 }) {
+  Object.entries(EDITORIAL_CARD_CSS_VARIABLES).forEach(([property, value]) => {
+    root.style.setProperty(property, value);
+  });
   root.innerHTML = shellView();
 
   const elements = {
@@ -1875,6 +1879,11 @@ export function mountApp(root, {
       );
       const demoResource = findDemoResource(item);
       const resource = hydratedResource ?? demoResource ?? resolveResource(item);
+      const editable = Boolean(
+        authenticated
+        && hydratedResource
+        && CARD_TYPE_CONFIG[item.kind]?.editable
+      );
       const title = (
         state.resourcesLoading
         && isExternalResource
@@ -1889,12 +1898,9 @@ export function mountApp(root, {
       position.innerHTML = cardView({
         type: item.kind,
         title,
-        editable: Boolean(
-          authenticated
-          && hydratedResource
-          && CARD_TYPE_CONFIG[item.kind]?.editable
-        ),
+        editable,
       });
+      const card = position.querySelector('.canvas-card');
       const connectionButton = position.querySelector('.connection-button');
       const editButton = position.querySelector('.canvas-card-edit');
       const removeButton = position.querySelector('.canvas-card-remove');
@@ -1909,6 +1915,13 @@ export function mountApp(root, {
         event.stopPropagation();
         openEditor(hydratedResource);
       });
+      if (editable) {
+        card.addEventListener('dblclick', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openEditor(hydratedResource);
+        });
+      }
       removeButton.addEventListener('pointerdown', (event) => {
         event.stopPropagation();
       });

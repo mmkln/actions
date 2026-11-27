@@ -1,7 +1,46 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { canvasCardGeometry } from './geometry.js';
+import {
+  ACTION_CARD_LAYOUT,
+  EDITORIAL_CARD_CSS_VARIABLES,
+  EDITORIAL_CARD_LAYOUT,
+  canvasCardGeometry,
+} from './geometry.js';
+
+test('exposes one editorial layout contract to geometry and CSS', () => {
+  assert.equal(EDITORIAL_CARD_LAYOUT.paddingInline, 25);
+  assert.equal(EDITORIAL_CARD_LAYOUT.contentGap, 13);
+  assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--editorial-card-max-width'], '400px');
+  assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--editorial-card-content-width'], '350px');
+  assert.equal(ACTION_CARD_LAYOUT.maxWidth, 440);
+  assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--action-card-max-width'], '440px');
+  assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--action-card-content-width'], '388px');
+});
+
+test('adapts action geometry to its title', () => {
+  assert.deepEqual(canvasCardGeometry('action', 'Decide'), {
+    width: 250,
+    height: 135,
+  });
+
+  const longAction = canvasCardGeometry(
+    'action',
+    'Improve customer activation across the complete onboarding flow',
+  );
+
+  assert.ok(longAction.width > 250);
+  assert.ok(longAction.width <= 440);
+  assert.ok(longAction.height >= 135);
+  assert.ok(longAction.height <= 232);
+});
+
+test('uses maximum action geometry as a safe fallback', () => {
+  assert.deepEqual(canvasCardGeometry('action'), {
+    width: 440,
+    height: 232,
+  });
+});
 
 test('adapts thought geometry to its content within safe bounds', () => {
   assert.deepEqual(canvasCardGeometry('thought', 'i'), {
@@ -35,7 +74,7 @@ test('adapts achievement geometry to its title within editorial bounds', () => {
     ),
     {
       width: 400,
-      height: 136,
+      height: 134,
     },
   );
 });

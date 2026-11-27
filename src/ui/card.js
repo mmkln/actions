@@ -46,6 +46,18 @@ function taskArticleView({ title, config }) {
   `;
 }
 
+function actionArticleView({ title, config }) {
+  return `
+    <article class="canvas-card canvas-card--action" data-card-type="action">
+      <header class="action-card__header">
+        <span class="action-card__icon" aria-hidden="true">${icon(config.icon)}</span>
+        <span class="action-card__label">${escapeHtml(config.label)}</span>
+      </header>
+      <p class="action-card__title">${escapeHtml(title)}</p>
+    </article>
+  `;
+}
+
 function regularArticleView({ type, title, config }) {
   return `
     <article class="canvas-card canvas-card--${type}" data-card-type="${type}">
@@ -78,6 +90,7 @@ export function cardView({ type, title, editable = false }) {
 
   const config = CARD_TYPE_CONFIG[type];
   const articleView = {
+    action: actionArticleView,
     thought: thoughtArticleView,
     achievement: achievementArticleView,
     task: taskArticleView,

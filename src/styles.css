@@ -32,27 +32,30 @@
   --danger: #b34850;
   --danger-strong: #963942;
   --danger-surface: rgba(179, 72, 80, 0.1);
-  --thought-surface: #f1e7f3;
-  --thought-color: #795287;
-  --thought-card-paper: #f8e0bd;
-  --thought-card-paper-light: #fff3dc;
-  --thought-card-highlight: rgba(255, 255, 255, 0.66);
-  --thought-card-border: rgba(82, 61, 43, 0.32);
-  --thought-card-border-hover: rgba(82, 61, 43, 0.42);
-  --thought-card-ink: #191510;
-  --thought-card-label: rgba(35, 29, 23, 0.66);
+  --thought-surface: #fff4cf;
+  --thought-color: #7b5b15;
+  --thought-card-paper: #fff7d6;
+  --thought-card-paper-light: #fffbea;
+  --thought-card-border: rgba(105, 82, 24, 0.16);
+  --thought-card-border-hover: rgba(105, 82, 24, 0.28);
+  --thought-card-ink: #282318;
+  --thought-card-label: rgba(40, 35, 24, 0.56);
+  --thought-card-radius: 12px;
+  --thought-card-texture: rgba(78, 61, 42, 0.12);
+  --thought-card-texture-opacity: 0.035;
+  --thought-card-texture-blend: multiply;
   --thought-card-shadow:
-    0 8px 20px rgba(63, 44, 33, 0.09),
-    0 2px 4px rgba(63, 44, 33, 0.05),
-    inset 0 1px rgba(255, 255, 255, 0.66);
+    0 7px 18px rgba(82, 63, 18, 0.09),
+    0 1px 3px rgba(82, 63, 18, 0.05),
+    inset 0 1px rgba(255, 255, 255, 0.8);
   --thought-card-shadow-hover:
-    0 10px 24px rgba(63, 44, 33, 0.11),
-    0 2px 5px rgba(63, 44, 33, 0.06),
-    inset 0 1px rgba(255, 255, 255, 0.7);
+    0 10px 24px rgba(82, 63, 18, 0.12),
+    0 2px 5px rgba(82, 63, 18, 0.06),
+    inset 0 1px rgba(255, 255, 255, 0.84);
   --thought-card-shadow-dragging:
-    0 14px 30px rgba(63, 44, 33, 0.14),
-    0 3px 7px rgba(63, 44, 33, 0.08),
-    inset 0 1px rgba(255, 255, 255, 0.72);
+    0 15px 32px rgba(82, 63, 18, 0.16),
+    0 4px 8px rgba(82, 63, 18, 0.08),
+    inset 0 1px rgba(255, 255, 255, 0.86);
   --achievement-card-paper: #eef7e4;
   --achievement-card-paper-light: #f6faef;
   --achievement-card-highlight: rgba(255, 255, 255, 0.52);
@@ -169,27 +172,30 @@
   --danger: #e9878d;
   --danger-strong: #f09aa0;
   --danger-surface: rgba(233, 135, 141, 0.12);
-  --thought-surface: rgba(182, 154, 220, 0.15);
-  --thought-color: #c7a8df;
-  --thought-card-paper: #1c1715;
-  --thought-card-paper-light: #302620;
-  --thought-card-highlight: rgba(255, 226, 184, 0.075);
-  --thought-card-border: rgba(202, 167, 116, 0.58);
-  --thought-card-border-hover: rgba(225, 190, 137, 0.78);
-  --thought-card-ink: #f5ead9;
-  --thought-card-label: rgba(245, 234, 217, 0.66);
+  --thought-surface: rgba(229, 190, 86, 0.13);
+  --thought-color: #dfb955;
+  --thought-card-paper: #e7dcba;
+  --thought-card-paper-light: #f2e8ca;
+  --thought-card-border: rgba(157, 128, 61, 0.58);
+  --thought-card-border-hover: rgba(184, 149, 68, 0.82);
+  --thought-card-ink: #272116;
+  --thought-card-label: rgba(39, 33, 22, 0.6);
+  --thought-card-radius: 12px;
+  --thought-card-texture: rgba(78, 61, 42, 0.12);
+  --thought-card-texture-opacity: 0.035;
+  --thought-card-texture-blend: multiply;
   --thought-card-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.32),
-    0 0 16px rgba(202, 167, 116, 0.045),
-    inset 0 1px rgba(255, 255, 255, 0.055);
+    0 11px 28px rgba(0, 0, 0, 0.36),
+    0 2px 6px rgba(0, 0, 0, 0.18),
+    inset 0 1px rgba(255, 255, 255, 0.5);
   --thought-card-shadow-hover:
-    0 13px 30px rgba(0, 0, 0, 0.38),
-    0 0 20px rgba(202, 167, 116, 0.075),
-    inset 0 1px rgba(255, 255, 255, 0.07);
+    0 14px 34px rgba(0, 0, 0, 0.42),
+    0 3px 8px rgba(0, 0, 0, 0.21),
+    inset 0 1px rgba(255, 255, 255, 0.56);
   --thought-card-shadow-dragging:
-    0 18px 38px rgba(0, 0, 0, 0.44),
-    0 0 26px rgba(202, 167, 116, 0.1),
-    inset 0 1px rgba(255, 255, 255, 0.085);
+    0 20px 42px rgba(0, 0, 0, 0.5),
+    0 5px 11px rgba(0, 0, 0, 0.24),
+    inset 0 1px rgba(255, 255, 255, 0.6);
   --achievement-card-paper: #111b15;
   --achievement-card-paper-light: #203126;
   --achievement-card-highlight: rgba(180, 224, 171, 0.07);
@@ -1195,19 +1201,11 @@ button:disabled {
 }
 
 .canvas-card--thought {
+  --editorial-card-radius: var(--thought-card-radius, 12px);
+
   border: 1px solid var(--thought-card-border);
   color: var(--thought-card-ink);
-  background:
-    radial-gradient(
-      circle at 18% 8%,
-      var(--thought-card-highlight),
-      transparent 48%
-    ),
-    linear-gradient(
-      135deg,
-      var(--thought-card-paper-light) 0%,
-      var(--thought-card-paper) 100%
-    );
+  background: var(--thought-card-paper);
   box-shadow: var(--thought-card-shadow);
 }
 
@@ -1215,16 +1213,16 @@ button:disabled {
   position: absolute;
   z-index: -1;
   inset: 0;
-  opacity: 0.08;
+  opacity: var(--thought-card-texture-opacity);
   pointer-events: none;
   background-image:
     repeating-radial-gradient(
       circle at 35% 25%,
-      rgba(78, 61, 42, 0.12) 0 0.45px,
+      var(--thought-card-texture) 0 0.45px,
       transparent 0.7px 3px
     );
   content: "";
-  mix-blend-mode: multiply;
+  mix-blend-mode: var(--thought-card-texture-blend);
 }
 
 .thought-card__header,

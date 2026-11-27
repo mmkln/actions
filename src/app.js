@@ -137,8 +137,11 @@ function shellView() {
           </section>
         </div>
         <div class="composer__search-icon" aria-hidden="true">${icon('search')}</div>
-        <input class="composer__search" type="search" placeholder="Search tasks and thoughts…" autocomplete="off" aria-label="Search tasks and thoughts" aria-keyshortcuts="Control+K Meta+K" aria-controls="resource-search-results" aria-expanded="false" data-resource-search disabled>
-        <kbd class="composer__shortcut" aria-hidden="true" data-resource-search-shortcut></kbd>
+        <input class="composer__search" type="search" placeholder="Search resources…" autocomplete="off" aria-label="Search resources" aria-keyshortcuts="Control+K Meta+K" aria-controls="resource-search-results" aria-expanded="false" data-resource-search disabled>
+        <kbd class="composer__shortcut" aria-hidden="true" data-resource-search-shortcut>
+          <span data-resource-search-shortcut-modifier></span>
+          <span>K</span>
+        </kbd>
         <button class="composer__clear" type="button" aria-label="Clear resource search" data-resource-search-clear hidden>${icon('close')}</button>
       </div>
     </main>
@@ -177,6 +180,7 @@ export function mountApp(root, {
     resourceSearchPopover: root.querySelector('[data-resource-search-popover]'),
     resourceSearch: root.querySelector('[data-resource-search]'),
     resourceSearchShortcut: root.querySelector('[data-resource-search-shortcut]'),
+    resourceSearchShortcutModifier: root.querySelector('[data-resource-search-shortcut-modifier]'),
     resourceSearchClear: root.querySelector('[data-resource-search-clear]'),
     resourceSearchStatus: root.querySelector('[data-resource-search-status]'),
     resourceResults: root.querySelector('[data-resource-results]'),
@@ -229,9 +233,9 @@ export function mountApp(root, {
   let removalTimer = null;
 
   const platform = navigator.userAgentData?.platform ?? navigator.platform ?? '';
-  elements.resourceSearchShortcut.textContent = /Mac|iPhone|iPad|iPod/i.test(platform)
-    ? '⌘ K'
-    : 'Ctrl K';
+  elements.resourceSearchShortcutModifier.textContent = (
+    /Mac|iPhone|iPad|iPod/i.test(platform) ? '⌘' : 'Ctrl'
+  );
 
   function resourceKey(kind, resourceId) {
     return `${kind}:${resourceId}`;

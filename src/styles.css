@@ -809,11 +809,11 @@ button:disabled {
   bottom: var(--composer-bottom-inset);
   display: flex;
   align-items: center;
-  width: min(680px, calc(100vw - 48px));
+  width: clamp(560px, 53vw, 850px);
   min-height: var(--composer-height);
-  gap: 12px;
-  padding: 0 16px;
-  border: 1px solid var(--composer-border);
+  gap: 22px;
+  padding: 0 22px;
+  border: 1.5px solid var(--composer-border);
   border-radius: 18px;
   background: var(--composer-surface);
   box-shadow: var(--composer-shadow), inset 0 1px var(--composer-highlight);
@@ -983,7 +983,7 @@ button:disabled {
 }
 
 .composer__search::placeholder {
-  color: var(--text-tertiary);
+  color: color-mix(in srgb, var(--text-secondary) 82%, var(--text-tertiary));
   opacity: 1;
 }
 
@@ -993,17 +993,35 @@ button:disabled {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  padding: 0 8px;
-  border: 1px solid color-mix(in srgb, var(--composer-border) 78%, transparent);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--composer-border) 86%, transparent);
   border-radius: 8px;
-  color: var(--text-tertiary);
-  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
-  box-shadow: inset 0 1px color-mix(in srgb, var(--text-primary) 7%, transparent);
+  color: color-mix(in srgb, var(--text-primary) 84%, var(--text-tertiary));
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  box-shadow: inset 0 1px color-mix(in srgb, var(--text-primary) 6%, transparent);
   font-family: inherit;
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
+}
+
+.composer__shortcut span {
+  display: inline-flex;
+  min-width: 24px;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+}
+
+.composer__shortcut span:first-child {
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--text-primary) 11%, transparent);
 }
 
 .composer__shortcut[hidden] {
@@ -1366,31 +1384,31 @@ button:disabled {
 
 @media (min-width: 1100px) {
   .navigation-hud {
-    bottom: calc(var(--composer-bottom-inset) + 14px);
+    bottom: calc(var(--composer-bottom-inset) + 11px);
   }
 }
 
 .canvas-fit-button {
   display: inline-flex;
-  height: 40px;
+  height: 34px;
   align-items: center;
-  gap: 8px;
-  padding: 0 14px;
-  border: 1px solid var(--composer-border);
-  border-radius: 14px;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1.5px solid var(--composer-border);
+  border-radius: 12px;
   color: var(--text-primary);
   cursor: pointer;
   background: var(--composer-surface);
   box-shadow: var(--shadow-control), inset 0 1px var(--composer-highlight);
   backdrop-filter: blur(20px);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
   transition: border-color 150ms ease, background 150ms ease;
 }
 
 .canvas-fit-button .icon {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
 }
 
 .canvas-fit-button:hover {

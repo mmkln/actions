@@ -3,8 +3,10 @@ import test from 'node:test';
 
 import {
   ACTION_CARD_LAYOUT,
+  CANVAS_CARD_CSS_VARIABLES,
   EDITORIAL_CARD_CSS_VARIABLES,
   EDITORIAL_CARD_LAYOUT,
+  GAP_CARD_LAYOUT,
   canvasCardGeometry,
 } from './geometry.js';
 
@@ -16,6 +18,9 @@ test('exposes one editorial layout contract to geometry and CSS', () => {
   assert.equal(ACTION_CARD_LAYOUT.maxWidth, 340);
   assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--action-card-max-width'], '340px');
   assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--action-card-content-width'], '250px');
+  assert.equal(GAP_CARD_LAYOUT.maxWidth, 320);
+  assert.equal(CANVAS_CARD_CSS_VARIABLES['--gap-card-max-width'], '320px');
+  assert.equal(CANVAS_CARD_CSS_VARIABLES['--gap-card-content-width'], '264px');
 });
 
 test('adapts action geometry to its title', () => {
@@ -106,6 +111,29 @@ test('uses maximum task geometry as a safe fallback', () => {
   assert.deepEqual(canvasCardGeometry('task'), {
     width: 400,
     height: 192,
+  });
+});
+
+test('adapts gap geometry while preserving its missing-state treatment', () => {
+  assert.deepEqual(canvasCardGeometry('gap', 'Missing'), {
+    width: 240,
+    height: 158,
+  });
+
+  const longGap = canvasCardGeometry(
+    'gap',
+    'Evidence is missing from the current customer validation process',
+  );
+
+  assert.equal(longGap.width, 320);
+  assert.ok(longGap.height > 158);
+  assert.ok(longGap.height <= 197);
+});
+
+test('uses maximum gap geometry as a safe fallback', () => {
+  assert.deepEqual(canvasCardGeometry('gap'), {
+    width: 320,
+    height: 197,
   });
 });
 

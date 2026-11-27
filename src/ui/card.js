@@ -46,6 +46,19 @@ function taskArticleView({ title, config }) {
   `;
 }
 
+function gapArticleView({ title, config }) {
+  return `
+    <article class="canvas-card canvas-card--gap" data-card-type="gap">
+      <header class="gap-card__header">
+        <span class="gap-card__icon" aria-hidden="true"></span>
+        <span class="gap-card__label">${escapeHtml(config.label)}</span>
+      </header>
+      <p class="gap-card__title">${escapeHtml(title)}</p>
+      <span class="gap-card__missing-line" aria-hidden="true"></span>
+    </article>
+  `;
+}
+
 function actionArticleView({ title, config, canOpen }) {
   return `
     <article class="canvas-card canvas-card--action" data-card-type="action">
@@ -97,6 +110,7 @@ export function cardView({ type, title, canOpen = false }) {
     thought: thoughtArticleView,
     achievement: achievementArticleView,
     task: taskArticleView,
+    gap: gapArticleView,
   }[type] ?? regularArticleView;
   const article = articleView({ type, title, config, canOpen });
 

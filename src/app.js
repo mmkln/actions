@@ -9,7 +9,7 @@ import {
 } from './canvas/connections.js';
 import {
   CANVAS_INSERTION_GAP,
-  EDITORIAL_CARD_CSS_VARIABLES,
+  CANVAS_CARD_CSS_VARIABLES,
   canvasCardGeometry,
 } from './canvas/geometry.js';
 import { syncCanvasGrid } from './canvas/grid-projection.js';
@@ -266,7 +266,7 @@ export function mountApp(root, {
   authSession,
   themeController,
 }) {
-  Object.entries(EDITORIAL_CARD_CSS_VARIABLES).forEach(([property, value]) => {
+  Object.entries(CANVAS_CARD_CSS_VARIABLES).forEach(([property, value]) => {
     root.style.setProperty(property, value);
   });
   root.innerHTML = shellView();

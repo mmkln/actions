@@ -36,6 +36,23 @@ test('renders each Skopos resource as a supported canvas card', () => {
   }
 });
 
+test('renders a gap as a deliberately incomplete editorial card', () => {
+  const markup = cardView({
+    type: CARD_TYPES.GAP,
+    title: 'Evidence is missing',
+  });
+
+  assert.match(markup, /canvas-card--gap/);
+  assert.match(markup, /gap-card__header/);
+  assert.match(markup, /gap-card__icon/);
+  assert.match(markup, /gap-card__label/);
+  assert.match(markup, />Gap</);
+  assert.match(markup, /gap-card__title/);
+  assert.match(markup, /Evidence is missing/);
+  assert.match(markup, /gap-card__missing-line/);
+  assert.doesNotMatch(markup, /canvas-card__body/);
+});
+
 test('renders a thought as an editorial quote card', () => {
   const markup = cardView({
     type: CARD_TYPES.THOUGHT,

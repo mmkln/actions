@@ -33,6 +33,22 @@ export const ACTION_CARD_LAYOUT = Object.freeze({
   maxLines: 2,
 });
 
+export const GAP_CARD_LAYOUT = Object.freeze({
+  minWidth: 240,
+  maxWidth: 320,
+  minHeight: 158,
+  paddingInline: 28,
+  paddingTop: 20,
+  paddingBottom: 22,
+  headerHeight: 28,
+  contentGap: 18,
+  footerGap: 20,
+  footerHeight: 2,
+  iconSize: 28,
+  borderRadius: 18,
+  maxLines: 3,
+});
+
 export const EDITORIAL_CARD_CSS_VARIABLES = Object.freeze({
   '--editorial-card-min-width': `${EDITORIAL_CARD_LAYOUT.minWidth}px`,
   '--editorial-card-max-width': `${EDITORIAL_CARD_LAYOUT.maxWidth}px`,
@@ -65,6 +81,27 @@ export const EDITORIAL_CARD_CSS_VARIABLES = Object.freeze({
   }px`,
 });
 
+export const GAP_CARD_CSS_VARIABLES = Object.freeze({
+  '--gap-card-min-width': `${GAP_CARD_LAYOUT.minWidth}px`,
+  '--gap-card-max-width': `${GAP_CARD_LAYOUT.maxWidth}px`,
+  '--gap-card-min-height': `${GAP_CARD_LAYOUT.minHeight}px`,
+  '--gap-card-padding-inline': `${GAP_CARD_LAYOUT.paddingInline}px`,
+  '--gap-card-padding-top': `${GAP_CARD_LAYOUT.paddingTop}px`,
+  '--gap-card-padding-bottom': `${GAP_CARD_LAYOUT.paddingBottom}px`,
+  '--gap-card-content-gap': `${GAP_CARD_LAYOUT.contentGap}px`,
+  '--gap-card-footer-gap': `${GAP_CARD_LAYOUT.footerGap}px`,
+  '--gap-card-icon-size': `${GAP_CARD_LAYOUT.iconSize}px`,
+  '--gap-card-radius': `${GAP_CARD_LAYOUT.borderRadius}px`,
+  '--gap-card-content-width': `${
+    GAP_CARD_LAYOUT.maxWidth - (GAP_CARD_LAYOUT.paddingInline * 2)
+  }px`,
+});
+
+export const CANVAS_CARD_CSS_VARIABLES = Object.freeze({
+  ...EDITORIAL_CARD_CSS_VARIABLES,
+  ...GAP_CARD_CSS_VARIABLES,
+});
+
 export const CANVAS_CARD_GEOMETRY = Object.freeze({
   action: Object.freeze({
     width: ACTION_CARD_LAYOUT.maxWidth,
@@ -73,6 +110,7 @@ export const CANVAS_CARD_GEOMETRY = Object.freeze({
   thought: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 203 }),
   achievement: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 192 }),
   task: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 192 }),
+  gap: Object.freeze({ width: GAP_CARD_LAYOUT.maxWidth, height: 197 }),
 });
 
 export const CANVAS_CARD_WIDTH = DEFAULT_CANVAS_CARD_GEOMETRY.width;
@@ -98,6 +136,11 @@ const CONTENT_DRIVEN_CARD_GEOMETRY = Object.freeze({
   task: Object.freeze({
     characterWidth: 12,
     lineHeight: 26 * 1.08,
+  }),
+  gap: Object.freeze({
+    characterWidth: 12,
+    lineHeight: 24 * 1.2,
+    layout: GAP_CARD_LAYOUT,
   }),
 });
 
@@ -140,6 +183,8 @@ function contentDrivenCardGeometry(kind, title) {
     layout.paddingTop
     + headerHeight
     + layout.contentGap
+    + (layout.footerGap ?? 0)
+    + (layout.footerHeight ?? 0)
     + layout.paddingBottom
   );
 

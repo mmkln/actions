@@ -1,6 +1,6 @@
 const GRID_WORLD_SPACING = 24;
-const GRID_WORLD_DOT_RADIUS = 0.7;
-const GRID_WORLD_DOT_EDGE = 0.8;
+const GRID_WORLD_DOT_DIAMETER = 1.4;
+const GRID_DOT_FEATHER_DEVICE_PIXELS = 0.5;
 
 function positiveModulo(value, divisor) {
   return ((value % divisor) + divisor) % divisor;
@@ -8,6 +8,20 @@ function positiveModulo(value, divisor) {
 
 function snapToDevicePixel(value, pixelRatio) {
   return Math.round(value * pixelRatio) / pixelRatio;
+}
+
+function projectDotGeometry(scale, pixelRatio) {
+  const minimumDiameter = 1 / pixelRatio;
+  const diameter = Math.max(
+    minimumDiameter,
+    snapToDevicePixel(GRID_WORLD_DOT_DIAMETER * scale, pixelRatio),
+  );
+  const radius = diameter / 2;
+
+  return {
+    radius,
+    edge: radius + GRID_DOT_FEATHER_DEVICE_PIXELS / pixelRatio,
+  };
 }
 
 export function projectCanvasGrid(camera, pixelRatio = 1) {
@@ -19,6 +33,7 @@ export function projectCanvasGrid(camera, pixelRatio = 1) {
     1 / ratio,
     snapToDevicePixel(GRID_WORLD_SPACING * scale, ratio),
   );
+  const dot = projectDotGeometry(scale, ratio);
 
   return {
     spacing,
@@ -30,8 +45,8 @@ export function projectCanvasGrid(camera, pixelRatio = 1) {
       positiveModulo(Number.isFinite(camera?.y) ? camera.y : 0, spacing),
       ratio,
     ),
-    dotRadius: GRID_WORLD_DOT_RADIUS * scale,
-    dotEdge: GRID_WORLD_DOT_EDGE * scale,
+    dotRadius: dot.radius,
+    dotEdge: dot.edge,
   };
 }
 

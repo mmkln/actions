@@ -9,8 +9,10 @@ test('projects grid geometry through the camera zoom', () => {
 
   assert.equal(fullSize.spacing, 24);
   assert.equal(halfSize.spacing, 12);
-  assert.equal(halfSize.dotRadius, fullSize.dotRadius / 2);
-  assert.equal(halfSize.dotEdge, fullSize.dotEdge / 2);
+  assert.equal(fullSize.dotRadius, 0.75);
+  assert.equal(fullSize.dotEdge, 1);
+  assert.equal(halfSize.dotRadius, 0.25);
+  assert.equal(halfSize.dotEdge, 0.5);
 });
 
 test('keeps the repeated grid aligned to physical pixels while panning', () => {
@@ -20,8 +22,26 @@ test('keeps the repeated grid aligned to physical pixels while panning', () => {
       spacing: 21,
       offsetX: 16,
       offsetY: 7,
-      dotRadius: 0.616,
-      dotEdge: 0.7040000000000001,
+      dotRadius: 0.5,
+      dotEdge: 0.75,
     },
   );
+});
+
+test('keeps every grid dot at least one physical pixel wide', () => {
+  const scales = [0.3, 0.4, 0.5, 0.65, 0.8, 1];
+  const pixelRatios = [1, 1.25, 1.5, 2, 3];
+
+  for (const scale of scales) {
+    for (const pixelRatio of pixelRatios) {
+      const grid = projectCanvasGrid({ x: 0, y: 0, scale }, pixelRatio);
+      const physicalDiameter = grid.dotRadius * 2 * pixelRatio;
+
+      assert.ok(
+        physicalDiameter >= 1,
+        `scale=${scale}, pixelRatio=${pixelRatio}`,
+      );
+      assert.ok(grid.dotEdge > grid.dotRadius);
+    }
+  }
 });

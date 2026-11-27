@@ -13,15 +13,15 @@ test('exposes one editorial layout contract to geometry and CSS', () => {
   assert.equal(EDITORIAL_CARD_LAYOUT.contentGap, 13);
   assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--editorial-card-max-width'], '400px');
   assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--editorial-card-content-width'], '350px');
-  assert.equal(ACTION_CARD_LAYOUT.maxWidth, 400);
-  assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--action-card-max-width'], '400px');
-  assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--action-card-content-width'], '352px');
+  assert.equal(ACTION_CARD_LAYOUT.maxWidth, 340);
+  assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--action-card-max-width'], '340px');
+  assert.equal(EDITORIAL_CARD_CSS_VARIABLES['--action-card-content-width'], '250px');
 });
 
 test('adapts action geometry to its title', () => {
   assert.deepEqual(canvasCardGeometry('action', 'Decide'), {
-    width: 220,
-    height: 112,
+    width: 190,
+    height: 84,
   });
 
   const longAction = canvasCardGeometry(
@@ -29,16 +29,16 @@ test('adapts action geometry to its title', () => {
     'Improve customer activation across the complete onboarding flow',
   );
 
-  assert.ok(longAction.width > 220);
-  assert.ok(longAction.width <= 400);
-  assert.ok(longAction.height >= 112);
-  assert.ok(longAction.height <= 196);
+  assert.ok(longAction.width > 190);
+  assert.ok(longAction.width <= 340);
+  assert.ok(longAction.height >= 84);
+  assert.ok(longAction.height <= 96);
 });
 
 test('uses maximum action geometry as a safe fallback', () => {
   assert.deepEqual(canvasCardGeometry('action'), {
-    width: 400,
-    height: 196,
+    width: 340,
+    height: 96,
   });
 });
 

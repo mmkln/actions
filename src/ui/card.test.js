@@ -86,16 +86,29 @@ test('renders an action as a directional editorial card', () => {
   const markup = cardView({
     type: CARD_TYPES.ACTION,
     title: 'Improve customer activation',
+    canOpen: true,
   });
 
   assert.match(markup, /canvas-card--action/);
-  assert.match(markup, /action-card__header/);
-  assert.match(markup, /action-card__icon/);
+  assert.match(markup, /action-card__content/);
   assert.match(markup, /action-card__label/);
   assert.match(markup, />Action</);
   assert.match(markup, /action-card__title/);
   assert.match(markup, /Improve customer activation/);
+  assert.match(markup, /data-card-open/);
+  assert.match(markup, /aria-label="Open action"/);
+  assert.doesNotMatch(markup, /action-card__icon/);
+  assert.doesNotMatch(markup, /data-card-open[^>]*disabled/);
   assert.doesNotMatch(markup, /canvas-card__body/);
+});
+
+test('disables action navigation until the resource is available', () => {
+  const markup = cardView({
+    type: CARD_TYPES.ACTION,
+    title: 'Loading…',
+  });
+
+  assert.match(markup, /data-card-open[^>]*disabled/);
 });
 
 test('escapes the complete task title', () => {

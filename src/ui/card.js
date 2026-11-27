@@ -46,14 +46,22 @@ function taskArticleView({ title, config }) {
   `;
 }
 
-function actionArticleView({ title, config }) {
+function actionArticleView({ title, config, canOpen }) {
   return `
     <article class="canvas-card canvas-card--action" data-card-type="action">
-      <header class="action-card__header">
-        <span class="action-card__icon" aria-hidden="true">${icon(config.icon)}</span>
+      <div class="action-card__content">
         <span class="action-card__label">${escapeHtml(config.label)}</span>
-      </header>
-      <p class="action-card__title">${escapeHtml(title)}</p>
+        <p class="action-card__title">${escapeHtml(title)}</p>
+      </div>
+      <button
+        class="action-card__open"
+        type="button"
+        aria-label="Open action"
+        data-card-open
+        ${canOpen ? '' : 'disabled'}
+      >
+        ${icon('chevronRight')}
+      </button>
     </article>
   `;
 }
@@ -78,7 +86,7 @@ function cardControlsView() {
   `;
 }
 
-export function cardView({ type, title }) {
+export function cardView({ type, title, canOpen = false }) {
   if (!isCardType(type)) {
     throw new TypeError(`Unsupported card type: ${type}`);
   }
@@ -90,7 +98,7 @@ export function cardView({ type, title }) {
     achievement: achievementArticleView,
     task: taskArticleView,
   }[type] ?? regularArticleView;
-  const article = articleView({ type, title, config });
+  const article = articleView({ type, title, config, canOpen });
 
   return `${article}${cardControlsView()}`;
 }

@@ -22,6 +22,7 @@ import {
   resolveResource,
 } from './domain/demo-resources.js';
 import {
+  CARD_TYPES,
   CARD_TYPE_CONFIG,
   SEARCHABLE_CARD_TYPES,
   isExternalCardType,
@@ -1917,6 +1918,11 @@ export function mountApp(root, {
         && !hydratedResource
         && !demoResource
       ) ? 'Loading…' : resource.title;
+      const canOpenAction = Boolean(
+        item.kind === CARD_TYPES.ACTION
+        && editable
+        && hydratedResource
+      );
       const position = document.createElement('div');
       position.className = 'canvas-card-position';
       position.dataset.cardType = item.kind;
@@ -1925,9 +1931,17 @@ export function mountApp(root, {
       position.innerHTML = cardView({
         type: item.kind,
         title,
+        canOpen: canOpenAction,
       });
       const connectionButton = position.querySelector('.connection-button');
       const removeButton = position.querySelector('.canvas-card-remove');
+      const openButton = position.querySelector('[data-card-open]');
+      if (openButton && canOpenAction) {
+        openButton.addEventListener('click', (event) => {
+          event.stopPropagation();
+          openEditor(hydratedResource);
+        });
+      }
       connectionButton.addEventListener('click', (event) => {
         event.stopPropagation();
         handleConnectionButton(item);

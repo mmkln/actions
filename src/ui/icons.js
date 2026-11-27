@@ -14,6 +14,7 @@ const paths = {
   search: '<circle cx="10.5" cy="10.5" r="6.25"/><path d="m15.2 15.2 4.05 4.05"/>',
   close: '<path d="m7 7 10 10M17 7 7 17"/>',
   'arrow-left': '<path d="m15 18-6-6 6-6"/>',
+  chevronRight: '<path d="m9 18 6-6-6-6"/>',
   fit: '<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/>',
   chevronDown: '<path d="m7 10 5 5 5-5"/>',
   monitor: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',

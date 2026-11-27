@@ -18,17 +18,19 @@ export const EDITORIAL_CARD_LAYOUT = Object.freeze({
 });
 
 export const ACTION_CARD_LAYOUT = Object.freeze({
-  minWidth: 220,
-  maxWidth: 400,
-  minHeight: 112,
-  paddingInline: 24,
-  paddingTop: 18,
-  paddingBottom: 22,
-  contentGap: 13,
-  headerGap: 11,
-  iconSize: 30,
-  borderRadius: 18,
-  maxLines: 4,
+  minWidth: 190,
+  maxWidth: 340,
+  minHeight: 84,
+  maxHeight: 96,
+  paddingInline: 18,
+  paddingTop: 13,
+  paddingBottom: 14,
+  headerHeight: 11,
+  contentGap: 7,
+  controlSize: 40,
+  controlGap: 14,
+  borderRadius: 15,
+  maxLines: 2,
 });
 
 export const EDITORIAL_CARD_CSS_VARIABLES = Object.freeze({
@@ -52,16 +54,22 @@ export const EDITORIAL_CARD_CSS_VARIABLES = Object.freeze({
   '--action-card-padding-top': `${ACTION_CARD_LAYOUT.paddingTop}px`,
   '--action-card-padding-bottom': `${ACTION_CARD_LAYOUT.paddingBottom}px`,
   '--action-card-content-gap': `${ACTION_CARD_LAYOUT.contentGap}px`,
-  '--action-card-header-gap': `${ACTION_CARD_LAYOUT.headerGap}px`,
-  '--action-card-icon-size': `${ACTION_CARD_LAYOUT.iconSize}px`,
+  '--action-card-control-size': `${ACTION_CARD_LAYOUT.controlSize}px`,
+  '--action-card-control-gap': `${ACTION_CARD_LAYOUT.controlGap}px`,
   '--action-card-radius': `${ACTION_CARD_LAYOUT.borderRadius}px`,
   '--action-card-content-width': `${
-    ACTION_CARD_LAYOUT.maxWidth - (ACTION_CARD_LAYOUT.paddingInline * 2)
+    ACTION_CARD_LAYOUT.maxWidth
+    - (ACTION_CARD_LAYOUT.paddingInline * 2)
+    - ACTION_CARD_LAYOUT.controlSize
+    - ACTION_CARD_LAYOUT.controlGap
   }px`,
 });
 
 export const CANVAS_CARD_GEOMETRY = Object.freeze({
-  action: Object.freeze({ width: ACTION_CARD_LAYOUT.maxWidth, height: 196 }),
+  action: Object.freeze({
+    width: ACTION_CARD_LAYOUT.maxWidth,
+    height: ACTION_CARD_LAYOUT.maxHeight,
+  }),
   thought: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 203 }),
   achievement: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 192 }),
   task: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 192 }),
@@ -74,8 +82,8 @@ export const CANVAS_INSERTION_GAP = 8;
 
 const CONTENT_DRIVEN_CARD_GEOMETRY = Object.freeze({
   action: Object.freeze({
-    characterWidth: 12,
-    lineHeight: 26 * 1.08,
+    characterWidth: 10.6,
+    lineHeight: 24,
     layout: ACTION_CARD_LAYOUT,
   }),
   thought: Object.freeze({
@@ -108,23 +116,29 @@ function contentDrivenCardGeometry(kind, title) {
     characterCount * config.characterWidth,
   );
   const horizontalPadding = layout.paddingInline * 2;
+  const controlWidth = layout.controlSize
+    ? layout.controlSize + layout.controlGap
+    : 0;
+  const fixedWidth = horizontalPadding + controlWidth;
   const maximumContentWidth = (
-    layout.maxWidth - horizontalPadding
+    layout.maxWidth - fixedWidth
   );
   const contentWidth = Math.min(maximumContentWidth, estimatedTextWidth);
   const width = Math.ceil(Math.max(
     layout.minWidth,
-    contentWidth + horizontalPadding,
+    contentWidth + fixedWidth,
   ));
+  const availableTextWidth = Math.max(1, width - fixedWidth);
   const lineCount = Math.min(
     layout.maxLines,
     Math.max(1, Math.ceil(
-      estimatedTextWidth / Math.max(1, width - horizontalPadding),
+      estimatedTextWidth / availableTextWidth,
     )),
   );
+  const headerHeight = layout.headerHeight ?? layout.iconSize;
   const baseHeight = (
     layout.paddingTop
-    + layout.iconSize
+    + headerHeight
     + layout.contentGap
     + layout.paddingBottom
   );

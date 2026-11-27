@@ -1,7 +1,6 @@
 export const RESOURCE_PALETTE_SCREENS = Object.freeze({
   SEARCH: 'search',
   CHOOSE_TYPE: 'choose-type',
-  CONFIGURE: 'configure',
 });
 
 export function createResourcePaletteState() {
@@ -12,7 +11,6 @@ export function createResourcePaletteState() {
     draft: {
       title: '',
       selectedKind: null,
-      selectedParent: null,
     },
     search: {
       requestId: 0,
@@ -23,10 +21,6 @@ export function createResourcePaletteState() {
       completedAt: null,
       refreshing: false,
     },
-    parentQuery: '',
-    parentResults: [],
-    parentLoading: false,
-    parentError: null,
     actionError: null,
   };
 }
@@ -38,7 +32,6 @@ export function changeResourceQuery(state, title) {
     draft: {
       title,
       selectedKind: null,
-      selectedParent: null,
     },
     search: {
       requestId: state.search.requestId + 1,
@@ -150,12 +143,7 @@ export function beginResourceCreation(state) {
     draft: {
       ...state.draft,
       selectedKind: null,
-      selectedParent: null,
     },
-    parentQuery: '',
-    parentResults: [],
-    parentLoading: false,
-    parentError: null,
     actionError: null,
   };
 }
@@ -163,64 +151,22 @@ export function beginResourceCreation(state) {
 export function chooseResourceKind(state, kind) {
   return {
     ...state,
-    screen: RESOURCE_PALETTE_SCREENS.CONFIGURE,
     draft: {
       ...state.draft,
       selectedKind: kind,
-      selectedParent: null,
     },
-    parentQuery: '',
-    parentResults: [],
-    parentLoading: false,
-    parentError: null,
     actionError: null,
   };
 }
 
-export function chooseResourceParent(state, parent) {
-  return {
-    ...state,
-    draft: {
-      ...state.draft,
-      selectedParent: parent,
-    },
-  };
-}
-
 export function returnFromResourceCreation(state) {
-  if (state.screen === RESOURCE_PALETTE_SCREENS.CONFIGURE) {
-    return {
-      ...state,
-      screen: RESOURCE_PALETTE_SCREENS.CHOOSE_TYPE,
-      draft: {
-        ...state.draft,
-        selectedKind: null,
-        selectedParent: null,
-      },
-      parentQuery: '',
-      parentResults: [],
-      parentLoading: false,
-      parentError: null,
-      actionError: null,
-    };
-  }
   return {
     ...state,
     screen: RESOURCE_PALETTE_SCREENS.SEARCH,
     draft: {
       ...state.draft,
       selectedKind: null,
-      selectedParent: null,
     },
     actionError: null,
   };
-}
-
-export function canSubmitResourceDraft(state, cardTypeConfig) {
-  if (state.screen !== RESOURCE_PALETTE_SCREENS.CONFIGURE) return false;
-  if (!state.draft.selectedKind) return false;
-  const parentKind = cardTypeConfig[state.draft.selectedKind]?.parentKind;
-  const parent = state.draft.selectedParent;
-  if (!parentKind || !parent) return true;
-  return parent.kind === parentKind;
 }

@@ -33,11 +33,9 @@ import {
 import {
   RESOURCE_PALETTE_SCREENS,
   beginResourceCreation,
-  canSubmitResourceDraft,
   changeResourceFilter,
   changeResourceQuery,
   chooseResourceKind,
-  chooseResourceParent,
   createResourcePaletteState,
   failResourceSearch,
   finishResourceSearch,
@@ -240,39 +238,11 @@ function shellView() {
                 </div>
               </section>
             </div>
+            <p class="resource-kind-picker__error" data-resource-create-note hidden></p>
             <footer class="resource-kind-shortcuts" aria-hidden="true">
               <span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> Navigate</span>
               <span><kbd data-resource-confirm-key>Return</kbd> Select</span>
               <span><kbd>Esc</kbd> Back</span>
-            </footer>
-          </div>
-
-          <div class="resource-palette__screen" data-resource-configure-screen hidden>
-            <header class="resource-palette__header">
-              <button type="button" aria-label="Back to resource types" data-resource-configure-back>${icon('arrow-left')}</button>
-              <div>
-                <h2 data-resource-configure-heading></h2>
-                <p data-resource-configure-subtitle></p>
-              </div>
-              <kbd>Esc</kbd>
-            </header>
-            <div class="resource-palette__draft">
-              <label>TITLE</label>
-              <div class="resource-palette__title" data-resource-configure-title></div>
-              <section data-resource-parent-section hidden>
-                <label data-resource-parent-label></label>
-                <div class="resource-palette__parent-search">
-                  ${icon('search')}
-                  <input type="search" autocomplete="off" data-resource-parent-search>
-                </div>
-                <p class="resource-palette__parent-status" data-resource-parent-status></p>
-                <div class="resource-palette__parent-results" role="listbox" data-resource-parent-results></div>
-              </section>
-              <p class="resource-create-panel__note" data-resource-create-note hidden></p>
-            </div>
-            <footer class="resource-palette__footer">
-              <span><kbd>Esc</kbd> Back</span>
-              <button class="resource-create-panel__action" type="button" data-resource-create-action>Create &amp; Place</button>
             </footer>
           </div>
         </section>
@@ -334,7 +304,6 @@ export function mountApp(root, {
     resourcePlaceKey: root.querySelector('[data-resource-place-key]'),
     resourcePrimaryActionLabel: root.querySelector('[data-resource-primary-action-label]'),
     resourceTypeScreen: root.querySelector('[data-resource-type-screen]'),
-    resourceConfigureScreen: root.querySelector('[data-resource-configure-screen]'),
     resourceSearch: root.querySelector('[data-resource-search]'),
     resourceSearchShortcut: root.querySelector('[data-resource-search-shortcut]'),
     resourceSearchShortcutModifier: root.querySelector('[data-resource-search-shortcut-modifier]'),
@@ -350,16 +319,6 @@ export function mountApp(root, {
     resourceCreateKinds: root.querySelector('[data-resource-create-kinds]'),
     resourceCreateKindButtons: [...root.querySelectorAll('[data-resource-create-kind]')],
     resourceConfirmKey: root.querySelector('[data-resource-confirm-key]'),
-    resourceConfigureBack: root.querySelector('[data-resource-configure-back]'),
-    resourceConfigureHeading: root.querySelector('[data-resource-configure-heading]'),
-    resourceConfigureSubtitle: root.querySelector('[data-resource-configure-subtitle]'),
-    resourceConfigureTitle: root.querySelector('[data-resource-configure-title]'),
-    resourceParentSection: root.querySelector('[data-resource-parent-section]'),
-    resourceParentLabel: root.querySelector('[data-resource-parent-label]'),
-    resourceParentSearch: root.querySelector('[data-resource-parent-search]'),
-    resourceParentStatus: root.querySelector('[data-resource-parent-status]'),
-    resourceParentResults: root.querySelector('[data-resource-parent-results]'),
-    resourceCreateAction: root.querySelector('[data-resource-create-action]'),
     resourceCreateNote: root.querySelector('[data-resource-create-note]'),
     connectionToolbar: root.querySelector('[data-connection-toolbar]'),
     connectionCancel: root.querySelector('[data-connection-cancel]'),
@@ -403,8 +362,6 @@ export function mountApp(root, {
   let viewportController = null;
   let searchTimer = null;
   let searchAbortController = null;
-  let parentSearchTimer = null;
-  let parentSearchGeneration = 0;
   let hydrationGeneration = 0;
   let removalTimer = null;
   let placementFeedbackTimer = null;
@@ -1125,17 +1082,10 @@ export function mountApp(root, {
     });
   }
 
-  function selectedResourceCreationOption() {
-    return resourceCreationOptions().find(
-      ({ kind }) => kind === state.resourcePalette.draft.selectedKind,
-    ) ?? null;
-  }
-
   function renderResourceCreation() {
     const palette = state.resourcePalette;
     const options = resourceCreationOptions();
     const query = palette.draft.title.trim();
-    const proposal = selectedResourceCreationOption();
     const hasCreatableType = options.some(({ canCreate }) => canCreate);
 
     elements.composer.dataset.screen = palette.screen;
@@ -1144,9 +1094,6 @@ export function mountApp(root, {
     );
     elements.resourceTypeScreen.hidden = (
       palette.screen !== RESOURCE_PALETTE_SCREENS.CHOOSE_TYPE
-    );
-    elements.resourceConfigureScreen.hidden = (
-      palette.screen !== RESOURCE_PALETTE_SCREENS.CONFIGURE
     );
 
     elements.resourceCreateStart.hidden = !(
@@ -1167,76 +1114,18 @@ export function mountApp(root, {
 
     elements.resourceCreateKindButtons.forEach((button) => {
       const option = options.find(({ kind }) => kind === button.dataset.resourceCreateKind);
-      button.disabled = !option || !option.canCreate;
+      const selected = (
+        palette.draft.selectedKind === button.dataset.resourceCreateKind
+      );
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-busy', String(selected && state.saving));
+      button.disabled = state.saving || !option || !option.canCreate;
       button.title = option?.tooLong
         ? `Maximum ${option.maximumLength} characters.`
         : '';
     });
 
-    if (palette.screen !== RESOURCE_PALETTE_SCREENS.CONFIGURE || !proposal) return;
-
-    const proposalConfig = CARD_TYPE_CONFIG[proposal.kind];
-    const parentConfig = proposalConfig.parentKind
-      ? CARD_TYPE_CONFIG[proposalConfig.parentKind]
-      : null;
-    elements.resourceConfigureHeading.textContent = `New ${proposalConfig.label}`;
-    elements.resourceConfigureSubtitle.textContent = proposalConfig.sourceLabel;
-    elements.resourceConfigureTitle.textContent = proposal.title;
-    elements.resourceParentSection.hidden = !parentConfig;
-
-    if (parentConfig) {
-      elements.resourceParentLabel.textContent = 'CONNECT TO · OPTIONAL';
-      elements.resourceParentSearch.placeholder = `Search ${parentConfig.pluralLabel.toLowerCase()}…`;
-      elements.resourceParentSearch.value = palette.parentQuery;
-      elements.resourceParentStatus.textContent = palette.parentLoading
-        ? 'Searching…'
-        : palette.parentError?.message
-          ?? (!palette.parentResults.length ? `No ${parentConfig.pluralLabel.toLowerCase()} found.` : '');
-      elements.resourceParentResults.replaceChildren(
-        ...palette.parentResults.map((resource) => {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'resource-palette__parent-result';
-          const selected = (
-            palette.draft.selectedParent?.kind === resource.kind
-            && palette.draft.selectedParent?.resource_id === resource.resource_id
-          );
-          button.classList.toggle('is-selected', selected);
-          button.setAttribute('role', 'option');
-          button.setAttribute('aria-selected', String(selected));
-          button.innerHTML = `
-            <span class="resource-search-popover__result-icon is-${resource.kind}">${icon(parentConfig.icon)}</span>
-            <span><strong></strong><small>${parentConfig.label} · Skopos</small></span>
-            <b>${selected ? '✓' : ''}</b>
-          `;
-          button.querySelector('strong').textContent = resource.title;
-          button.addEventListener('click', () => {
-            state.resourcePalette = chooseResourceParent(
-              state.resourcePalette,
-              resource,
-            );
-            renderResourceSearch();
-          });
-          return button;
-        }),
-      );
-    } else {
-      elements.resourceParentStatus.textContent = '';
-      elements.resourceParentResults.replaceChildren();
-    }
-
-    elements.resourceCreateAction.disabled = (
-      state.saving
-      || !proposal.canCreate
-      || !canSubmitResourceDraft(palette, CARD_TYPE_CONFIG)
-    );
-    elements.resourceCreateAction.textContent = (
-      state.resourceAction === 'create' ? 'Creating…' : 'Create & Place'
-    );
-    let note = palette.actionError?.message ?? '';
-    if (!note && proposal.tooLong) {
-      note = `${proposalConfig.pluralLabel} can contain up to ${proposal.maximumLength} characters.`;
-    }
+    const note = palette.actionError?.message ?? '';
     elements.resourceCreateNote.textContent = note;
     elements.resourceCreateNote.hidden = !note;
   }
@@ -1342,62 +1231,6 @@ export function mountApp(root, {
       elements.resourceResults.scrollTop = state.resourcePalette.scrollTop;
     }
     syncResourceControls();
-  }
-
-  async function searchResourceParents() {
-    const parentKind = CARD_TYPE_CONFIG[
-      state.resourcePalette.draft.selectedKind
-    ]?.parentKind;
-    if (!parentKind) return;
-
-    const generation = ++parentSearchGeneration;
-    state.resourcePalette = {
-      ...state.resourcePalette,
-      parentLoading: true,
-      parentError: null,
-    };
-    renderResourceSearch();
-    try {
-      const payload = await catalogApi.search({
-        query: state.resourcePalette.parentQuery.trim(),
-        kinds: [parentKind],
-      });
-      if (generation !== parentSearchGeneration) return;
-      state.resourcePalette = {
-        ...state.resourcePalette,
-        parentResults: payload.results ?? [],
-        parentError: null,
-      };
-    } catch (error) {
-      if (generation !== parentSearchGeneration) return;
-      state.resourcePalette = {
-        ...state.resourcePalette,
-        parentResults: [],
-        parentError: error,
-      };
-    } finally {
-      if (generation === parentSearchGeneration) {
-        state.resourcePalette = {
-          ...state.resourcePalette,
-          parentLoading: false,
-        };
-        renderResourceSearch();
-      }
-    }
-  }
-
-  function scheduleParentSearch() {
-    window.clearTimeout(parentSearchTimer);
-    state.resourcePalette = {
-      ...state.resourcePalette,
-      parentQuery: elements.resourceParentSearch.value,
-      draft: {
-        ...state.resourcePalette.draft,
-        selectedParent: null,
-      },
-    };
-    renderResourceSearch();
-    parentSearchTimer = window.setTimeout(searchResourceParents, 180);
   }
 
   async function searchResources({
@@ -1652,12 +1485,7 @@ export function mountApp(root, {
           draft: {
             ...state.resourcePalette.draft,
             selectedKind: null,
-            selectedParent: null,
           },
-          parentQuery: '',
-          parentResults: [],
-          parentLoading: false,
-          parentError: null,
           search: {
             ...state.resourcePalette.search,
             status: 'success',
@@ -1684,7 +1512,6 @@ export function mountApp(root, {
           draft: {
             ...state.resourcePalette.draft,
             selectedKind: null,
-            selectedParent: null,
           },
           search: {
             ...state.resourcePalette.search,
@@ -1731,25 +1558,17 @@ export function mountApp(root, {
     );
   }
 
-  function createResourceAndPlace() {
-    const proposal = selectedResourceCreationOption();
-    if (
-      !proposal?.canCreate
-      || !canSubmitResourceDraft(state.resourcePalette, CARD_TYPE_CONFIG)
-    ) return Promise.resolve();
+  function createResourceAndPlace(kind) {
+    const proposal = resourceCreationOptions().find(
+      (option) => option.kind === kind,
+    );
+    if (!proposal?.canCreate) return Promise.resolve();
 
-    const parentResource = state.resourcePalette.draft.selectedParent;
-    const parent = parentResource
-      ? {
-          kind: parentResource.kind,
-          resource_id: parentResource.resource_id,
-        }
-      : null;
     return placeResource(async () => {
       const payload = await catalogApi.create({
         kind: proposal.kind,
         title: proposal.title,
-        parent,
+        parent: null,
       });
       return payload.resource;
     }, 'create');
@@ -2059,22 +1878,20 @@ export function mountApp(root, {
     });
   });
   elements.resourceCreateBack.addEventListener('click', returnToPreviousResourceScreen);
-  elements.resourceConfigureBack.addEventListener('click', returnToPreviousResourceScreen);
   elements.resourceCreateKinds.addEventListener('click', (event) => {
     const button = event.target.closest('[data-resource-create-kind]');
-    if (!button || button.disabled) return;
+    if (!button || button.disabled || state.saving) return;
+    const kind = button.dataset.resourceCreateKind;
     state.resourcePalette = chooseResourceKind(
       state.resourcePalette,
-      button.dataset.resourceCreateKind,
+      kind,
     );
     renderResourceSearch();
-    const parentKind = CARD_TYPE_CONFIG[
-      state.resourcePalette.draft.selectedKind
-    ].parentKind;
-    if (parentKind) {
-      void searchResourceParents();
-    }
-    window.requestAnimationFrame(() => elements.resourceCreateAction.focus());
+    void createResourceAndPlace(kind).then(() => {
+      if (state.resourcePalette.screen === RESOURCE_PALETTE_SCREENS.SEARCH) {
+        window.requestAnimationFrame(() => elements.resourceSearch.focus());
+      }
+    });
   });
   elements.resourceCreateKinds.addEventListener('keydown', (event) => {
     const next = findSpatialNeighbor(
@@ -2085,10 +1902,6 @@ export function mountApp(root, {
     if (!next) return;
     event.preventDefault();
     next.focus();
-  });
-  elements.resourceParentSearch.addEventListener('input', scheduleParentSearch);
-  elements.resourceCreateAction.addEventListener('click', () => {
-    void createResourceAndPlace();
   });
   elements.resourceSearch.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -2173,12 +1986,10 @@ export function mountApp(root, {
     await authSession.signOut();
     closeResourceSearch();
     window.clearTimeout(searchTimer);
-    window.clearTimeout(parentSearchTimer);
     window.clearTimeout(placementFeedbackTimer);
     placementFeedbackTimer = null;
     searchAbortController?.abort();
     searchAbortController = null;
-    parentSearchGeneration += 1;
     state.resourcePalette = createResourcePaletteState();
     state.resourcePlacement = createResourcePlacementState();
     state.selectedSearchCommandKey = null;

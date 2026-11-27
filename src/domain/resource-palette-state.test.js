@@ -1,14 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { CARD_TYPE_CONFIG } from './card-types.js';
 import {
   beginResourceCreation,
-  canSubmitResourceDraft,
   changeResourceFilter,
   changeResourceQuery,
   chooseResourceKind,
-  chooseResourceParent,
   createResourcePaletteState,
   failResourceSearch,
   finishResourceSearch,
@@ -17,46 +14,21 @@ import {
   startResourceSearch,
 } from './resource-palette-state.js';
 
-test('moves from search through type selection to configuration', () => {
+test('selects a resource kind without opening another screen', () => {
   const choosing = beginResourceCreation(createResourcePaletteState());
-  const configuring = chooseResourceKind(choosing, 'achievement');
+  const selected = chooseResourceKind(choosing, 'achievement');
 
   assert.equal(choosing.screen, 'choose-type');
-  assert.equal(configuring.screen, 'configure');
-  assert.equal(configuring.draft.selectedKind, 'achievement');
-  assert.equal(canSubmitResourceDraft(configuring, CARD_TYPE_CONFIG), true);
+  assert.equal(selected.screen, 'choose-type');
+  assert.equal(selected.draft.selectedKind, 'achievement');
 });
 
-test('accepts an optional parent only when it has the correct kind', () => {
-  const configuring = chooseResourceKind(
-    beginResourceCreation(createResourcePaletteState()),
-    'gap',
-  );
-  const wrongParent = chooseResourceParent(configuring, {
-    kind: 'achievement',
-    resource_id: 'achievement-id',
-  });
-  const correctParent = chooseResourceParent(configuring, {
-    kind: 'requirement',
-    resource_id: 'requirement-id',
-  });
-
-  assert.equal(canSubmitResourceDraft(configuring, CARD_TYPE_CONFIG), true);
-  assert.equal(canSubmitResourceDraft(wrongParent, CARD_TYPE_CONFIG), false);
-  assert.equal(canSubmitResourceDraft(correctParent, CARD_TYPE_CONFIG), true);
-});
-
-test('backs out from configuration before returning to search', () => {
-  const configuring = chooseResourceKind(
-    beginResourceCreation(createResourcePaletteState()),
-    'requirement',
-  );
-
-  const choosing = returnFromResourceCreation(configuring);
+test('returns from type selection to search', () => {
+  const choosing = beginResourceCreation(createResourcePaletteState());
   const searching = returnFromResourceCreation(choosing);
 
-  assert.equal(choosing.screen, 'choose-type');
   assert.equal(searching.screen, 'search');
+  assert.equal(searching.draft.selectedKind, null);
 });
 
 test('makes the draft available immediately while search is debouncing', () => {

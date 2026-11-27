@@ -46,6 +46,18 @@ function taskArticleView({ title, config }) {
   `;
 }
 
+function requirementArticleView({ title, config }) {
+  return `
+    <article class="canvas-card canvas-card--requirement" data-card-type="requirement">
+      <span class="requirement-card__icon" aria-hidden="true">${icon(config.icon)}</span>
+      <div class="requirement-card__content">
+        <span class="requirement-card__label">${escapeHtml(config.label)}</span>
+        <p class="requirement-card__title">${escapeHtml(title)}</p>
+      </div>
+    </article>
+  `;
+}
+
 function gapArticleView({ title, config }) {
   return `
     <article class="canvas-card canvas-card--gap" data-card-type="gap">
@@ -54,7 +66,6 @@ function gapArticleView({ title, config }) {
         <span class="gap-card__label">${escapeHtml(config.label)}</span>
       </header>
       <p class="gap-card__title">${escapeHtml(title)}</p>
-      <span class="gap-card__missing-line" aria-hidden="true"></span>
     </article>
   `;
 }
@@ -110,6 +121,7 @@ export function cardView({ type, title, canOpen = false }) {
     thought: thoughtArticleView,
     achievement: achievementArticleView,
     task: taskArticleView,
+    requirement: requirementArticleView,
     gap: gapArticleView,
   }[type] ?? regularArticleView;
   const article = articleView({ type, title, config, canOpen });

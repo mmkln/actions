@@ -36,16 +36,29 @@ export const ACTION_CARD_LAYOUT = Object.freeze({
 export const GAP_CARD_LAYOUT = Object.freeze({
   minWidth: 240,
   maxWidth: 320,
-  minHeight: 158,
+  minHeight: 128,
   paddingInline: 28,
   paddingTop: 20,
   paddingBottom: 22,
   headerHeight: 28,
   contentGap: 18,
-  footerGap: 20,
-  footerHeight: 2,
   iconSize: 28,
   borderRadius: 18,
+  maxLines: 3,
+});
+
+export const REQUIREMENT_CARD_LAYOUT = Object.freeze({
+  minWidth: 250,
+  maxWidth: 350,
+  minHeight: 128,
+  paddingInline: 26,
+  paddingTop: 20,
+  paddingBottom: 22,
+  headerHeight: 14,
+  contentGap: 10,
+  controlSize: 28,
+  controlGap: 16,
+  borderRadius: 17,
   maxLines: 3,
 });
 
@@ -89,7 +102,6 @@ export const GAP_CARD_CSS_VARIABLES = Object.freeze({
   '--gap-card-padding-top': `${GAP_CARD_LAYOUT.paddingTop}px`,
   '--gap-card-padding-bottom': `${GAP_CARD_LAYOUT.paddingBottom}px`,
   '--gap-card-content-gap': `${GAP_CARD_LAYOUT.contentGap}px`,
-  '--gap-card-footer-gap': `${GAP_CARD_LAYOUT.footerGap}px`,
   '--gap-card-icon-size': `${GAP_CARD_LAYOUT.iconSize}px`,
   '--gap-card-radius': `${GAP_CARD_LAYOUT.borderRadius}px`,
   '--gap-card-content-width': `${
@@ -97,9 +109,29 @@ export const GAP_CARD_CSS_VARIABLES = Object.freeze({
   }px`,
 });
 
+export const REQUIREMENT_CARD_CSS_VARIABLES = Object.freeze({
+  '--requirement-card-min-width': `${REQUIREMENT_CARD_LAYOUT.minWidth}px`,
+  '--requirement-card-max-width': `${REQUIREMENT_CARD_LAYOUT.maxWidth}px`,
+  '--requirement-card-min-height': `${REQUIREMENT_CARD_LAYOUT.minHeight}px`,
+  '--requirement-card-padding-inline': `${REQUIREMENT_CARD_LAYOUT.paddingInline}px`,
+  '--requirement-card-padding-top': `${REQUIREMENT_CARD_LAYOUT.paddingTop}px`,
+  '--requirement-card-padding-bottom': `${REQUIREMENT_CARD_LAYOUT.paddingBottom}px`,
+  '--requirement-card-icon-size': `${REQUIREMENT_CARD_LAYOUT.controlSize}px`,
+  '--requirement-card-column-gap': `${REQUIREMENT_CARD_LAYOUT.controlGap}px`,
+  '--requirement-card-content-gap': `${REQUIREMENT_CARD_LAYOUT.contentGap}px`,
+  '--requirement-card-radius': `${REQUIREMENT_CARD_LAYOUT.borderRadius}px`,
+  '--requirement-card-content-width': `${
+    REQUIREMENT_CARD_LAYOUT.maxWidth
+    - (REQUIREMENT_CARD_LAYOUT.paddingInline * 2)
+    - REQUIREMENT_CARD_LAYOUT.controlSize
+    - REQUIREMENT_CARD_LAYOUT.controlGap
+  }px`,
+});
+
 export const CANVAS_CARD_CSS_VARIABLES = Object.freeze({
   ...EDITORIAL_CARD_CSS_VARIABLES,
   ...GAP_CARD_CSS_VARIABLES,
+  ...REQUIREMENT_CARD_CSS_VARIABLES,
 });
 
 export const CANVAS_CARD_GEOMETRY = Object.freeze({
@@ -110,7 +142,8 @@ export const CANVAS_CARD_GEOMETRY = Object.freeze({
   thought: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 203 }),
   achievement: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 192 }),
   task: Object.freeze({ width: EDITORIAL_CARD_LAYOUT.maxWidth, height: 192 }),
-  gap: Object.freeze({ width: GAP_CARD_LAYOUT.maxWidth, height: 197 }),
+  requirement: Object.freeze({ width: REQUIREMENT_CARD_LAYOUT.maxWidth, height: 153 }),
+  gap: Object.freeze({ width: GAP_CARD_LAYOUT.maxWidth, height: 175 }),
 });
 
 export const CANVAS_CARD_WIDTH = DEFAULT_CANVAS_CARD_GEOMETRY.width;
@@ -136,6 +169,11 @@ const CONTENT_DRIVEN_CARD_GEOMETRY = Object.freeze({
   task: Object.freeze({
     characterWidth: 12,
     lineHeight: 26 * 1.08,
+  }),
+  requirement: Object.freeze({
+    characterWidth: 12,
+    lineHeight: 24 * 1.2,
+    layout: REQUIREMENT_CARD_LAYOUT,
   }),
   gap: Object.freeze({
     characterWidth: 12,
@@ -183,8 +221,6 @@ function contentDrivenCardGeometry(kind, title) {
     layout.paddingTop
     + headerHeight
     + layout.contentGap
-    + (layout.footerGap ?? 0)
-    + (layout.footerHeight ?? 0)
     + layout.paddingBottom
   );
 

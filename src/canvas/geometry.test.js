@@ -7,6 +7,7 @@ import {
   EDITORIAL_CARD_CSS_VARIABLES,
   EDITORIAL_CARD_LAYOUT,
   GAP_CARD_LAYOUT,
+  REQUIREMENT_CARD_LAYOUT,
   canvasCardGeometry,
 } from './geometry.js';
 
@@ -21,6 +22,9 @@ test('exposes one editorial layout contract to geometry and CSS', () => {
   assert.equal(GAP_CARD_LAYOUT.maxWidth, 320);
   assert.equal(CANVAS_CARD_CSS_VARIABLES['--gap-card-max-width'], '320px');
   assert.equal(CANVAS_CARD_CSS_VARIABLES['--gap-card-content-width'], '264px');
+  assert.equal(REQUIREMENT_CARD_LAYOUT.maxWidth, 350);
+  assert.equal(CANVAS_CARD_CSS_VARIABLES['--requirement-card-max-width'], '350px');
+  assert.equal(CANVAS_CARD_CSS_VARIABLES['--requirement-card-content-width'], '254px');
 });
 
 test('adapts action geometry to its title', () => {
@@ -114,10 +118,35 @@ test('uses maximum task geometry as a safe fallback', () => {
   });
 });
 
+test('adapts requirement geometry to its title', () => {
+  assert.deepEqual(canvasCardGeometry('requirement', 'Validated'), {
+    width: 250,
+    height: 128,
+  });
+
+  assert.deepEqual(
+    canvasCardGeometry(
+      'requirement',
+      'Customer demand is validated by direct evidence',
+    ),
+    {
+      width: 350,
+      height: 153,
+    },
+  );
+});
+
+test('uses maximum requirement geometry as a safe fallback', () => {
+  assert.deepEqual(canvasCardGeometry('requirement'), {
+    width: 350,
+    height: 153,
+  });
+});
+
 test('adapts gap geometry while preserving its missing-state treatment', () => {
   assert.deepEqual(canvasCardGeometry('gap', 'Missing'), {
     width: 240,
-    height: 158,
+    height: 128,
   });
 
   const longGap = canvasCardGeometry(
@@ -126,14 +155,14 @@ test('adapts gap geometry while preserving its missing-state treatment', () => {
   );
 
   assert.equal(longGap.width, 320);
-  assert.ok(longGap.height > 158);
-  assert.ok(longGap.height <= 197);
+  assert.ok(longGap.height > 128);
+  assert.ok(longGap.height <= 175);
 });
 
 test('uses maximum gap geometry as a safe fallback', () => {
   assert.deepEqual(canvasCardGeometry('gap'), {
     width: 320,
-    height: 197,
+    height: 175,
   });
 });
 

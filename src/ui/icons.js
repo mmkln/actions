@@ -5,7 +5,7 @@ const paths = {
   target: '<circle cx="12" cy="12" r="7.25"/><circle cx="12" cy="12" r="2.75"/><path d="m14.2 9.8 5.05-5.05M16.25 4.75h3v3"/>',
   check: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="m8.5 12.2 2.35 2.35 4.9-5.1"/>',
   achievement: '<circle cx="12" cy="12" r="8.5"/><path d="m8 12 2.6 2.6L16.5 9"/>',
-  requirement: '<path d="M9 6h10M9 12h10M9 18h10"/><path d="m4 6 1.3 1.3 2.5-2.5M4 12l1.3 1.3 2.5-2.5M4 18l1.3 1.3 2.5-2.5"/>',
+  requirement: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/>',
   gap: '<path d="M4 12h6M14 12h6"/><path d="m7 9 3 3-3 3M17 9l-3 3 3 3"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   checkmark: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',

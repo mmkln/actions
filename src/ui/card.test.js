@@ -36,6 +36,22 @@ test('renders each Skopos resource as a supported canvas card', () => {
   }
 });
 
+test('renders a requirement as an editorial condition card', () => {
+  const markup = cardView({
+    type: CARD_TYPES.REQUIREMENT,
+    title: 'Customer demand is validated',
+  });
+
+  assert.match(markup, /canvas-card--requirement/);
+  assert.match(markup, /requirement-card__icon/);
+  assert.match(markup, /requirement-card__content/);
+  assert.match(markup, /requirement-card__label/);
+  assert.match(markup, />Requirement</);
+  assert.match(markup, /requirement-card__title/);
+  assert.match(markup, /Customer demand is validated/);
+  assert.doesNotMatch(markup, /canvas-card__body/);
+});
+
 test('renders a gap as a deliberately incomplete editorial card', () => {
   const markup = cardView({
     type: CARD_TYPES.GAP,
@@ -49,7 +65,7 @@ test('renders a gap as a deliberately incomplete editorial card', () => {
   assert.match(markup, />Gap</);
   assert.match(markup, /gap-card__title/);
   assert.match(markup, /Evidence is missing/);
-  assert.match(markup, /gap-card__missing-line/);
+  assert.doesNotMatch(markup, /gap-card__missing-line/);
   assert.doesNotMatch(markup, /canvas-card__body/);
 });
 

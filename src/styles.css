@@ -123,6 +123,22 @@
   --achievement-color: #3d7044;
   --requirement-surface: #e8edf7;
   --requirement-color: #456a9e;
+  --requirement-card-paper: #f1eee8;
+  --requirement-card-paper-light: #fbf9f5;
+  --requirement-card-highlight: rgba(255, 255, 255, 0.56);
+  --requirement-card-border: rgba(54, 48, 47, 0.3);
+  --requirement-card-border-hover: rgba(54, 48, 47, 0.48);
+  --requirement-card-ink: #171519;
+  --requirement-card-label: rgba(23, 21, 25, 0.64);
+  --requirement-card-shadow:
+    0 7px 18px rgba(55, 46, 40, 0.08),
+    0 2px 4px rgba(55, 46, 40, 0.04);
+  --requirement-card-shadow-hover:
+    0 10px 23px rgba(55, 46, 40, 0.11),
+    0 2px 5px rgba(55, 46, 40, 0.05);
+  --requirement-card-shadow-dragging:
+    0 15px 32px rgba(40, 32, 29, 0.16),
+    0 4px 8px rgba(40, 32, 29, 0.07);
   --gap-surface: #f6ead8;
   --gap-color: #8a581f;
   --gap-card-paper: rgba(244, 240, 247, 0.9);
@@ -131,7 +147,6 @@
   --gap-card-border-hover: #2f2438;
   --gap-card-ink: #4c4252;
   --gap-card-label: #706676;
-  --gap-card-rule: #493b52;
   --gap-card-shadow:
     0 7px 18px rgba(55, 40, 63, 0.08),
     0 2px 4px rgba(55, 40, 63, 0.04);
@@ -282,6 +297,22 @@
   --achievement-color: #9ac98e;
   --requirement-surface: rgba(90, 126, 174, 0.18);
   --requirement-color: #9bbce4;
+  --requirement-card-paper: #e7e3dd;
+  --requirement-card-paper-light: #f3f0ea;
+  --requirement-card-highlight: rgba(255, 255, 255, 0.42);
+  --requirement-card-border: rgba(194, 185, 178, 0.58);
+  --requirement-card-border-hover: rgba(226, 216, 207, 0.78);
+  --requirement-card-ink: #171519;
+  --requirement-card-label: rgba(23, 21, 25, 0.62);
+  --requirement-card-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.3),
+    0 2px 5px rgba(0, 0, 0, 0.16);
+  --requirement-card-shadow-hover:
+    0 13px 31px rgba(0, 0, 0, 0.36),
+    0 3px 7px rgba(0, 0, 0, 0.18);
+  --requirement-card-shadow-dragging:
+    0 18px 38px rgba(0, 0, 0, 0.44),
+    0 5px 10px rgba(0, 0, 0, 0.22);
   --gap-surface: rgba(188, 128, 55, 0.17);
   --gap-color: #e3b46e;
   --gap-card-paper: rgba(35, 30, 39, 0.9);
@@ -290,7 +321,6 @@
   --gap-card-border-hover: #f0e8f3;
   --gap-card-ink: #c6bec9;
   --gap-card-label: #aca3b0;
-  --gap-card-rule: #ead99d;
   --gap-card-shadow:
     0 10px 26px rgba(0, 0, 0, 0.3),
     inset 0 1px rgba(255, 255, 255, 0.035);
@@ -811,6 +841,12 @@ button:disabled {
   --card-control-ink: var(--task-card-ink);
 }
 
+.canvas-card-position[data-card-type="requirement"] {
+  --card-control-surface: var(--requirement-card-paper-light);
+  --card-control-accent: var(--requirement-card-ink);
+  --card-control-ink: var(--requirement-card-ink);
+}
+
 .canvas-card-position[data-card-type="gap"] {
   --card-control-surface: var(--gap-card-paper);
   --card-control-accent: var(--gap-card-border);
@@ -822,6 +858,7 @@ button:disabled {
   [data-card-type="thought"],
   [data-card-type="achievement"],
   [data-card-type="task"],
+  [data-card-type="requirement"],
   [data-card-type="gap"]
 ) {
   max-width: none;
@@ -1281,11 +1318,6 @@ button:disabled {
   background: var(--goal-surface);
 }
 
-.canvas-card--requirement .canvas-card__icon {
-  color: var(--requirement-color);
-  background: var(--requirement-surface);
-}
-
 .canvas-card__body {
   min-width: 0;
 }
@@ -1360,6 +1392,108 @@ button:disabled {
   box-shadow: var(--action-card-shadow);
 }
 
+.canvas-card--requirement {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  width: fit-content;
+  min-width: var(--requirement-card-min-width, 250px);
+  max-width: var(--requirement-card-max-width, 350px);
+  min-height: var(--requirement-card-min-height, 128px);
+  height: auto;
+  max-height: none;
+  grid-template-columns:
+    var(--requirement-card-icon-size, 28px)
+    minmax(0, 1fr);
+  align-content: start;
+  align-items: start;
+  gap: var(--requirement-card-column-gap, 16px);
+  padding:
+    var(--requirement-card-padding-top, 20px)
+    var(--requirement-card-padding-inline, 26px)
+    var(--requirement-card-padding-bottom, 22px);
+  overflow: hidden;
+  border: 1px solid var(--requirement-card-border);
+  border-radius: var(--requirement-card-radius, 17px);
+  color: var(--requirement-card-ink);
+  background:
+    radial-gradient(
+      circle at 14% 4%,
+      var(--requirement-card-highlight),
+      transparent 52%
+    ),
+    linear-gradient(
+      135deg,
+      var(--requirement-card-paper-light),
+      var(--requirement-card-paper)
+    );
+  box-shadow: var(--requirement-card-shadow);
+  backdrop-filter: none;
+}
+
+.requirement-card__icon {
+  display: grid;
+  width: var(--requirement-card-icon-size, 28px);
+  height: var(--requirement-card-icon-size, 28px);
+  place-items: center;
+  color: var(--requirement-card-ink);
+}
+
+.requirement-card__icon .icon {
+  width: 100%;
+  height: 100%;
+  stroke-width: 1.9;
+}
+
+.requirement-card__content {
+  display: grid;
+  min-width: 0;
+  gap: var(--requirement-card-content-gap, 10px);
+}
+
+.requirement-card__label {
+  overflow: hidden;
+  color: var(--requirement-card-label);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: 0.075em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.canvas-card--requirement .requirement-card__title {
+  display: -webkit-box;
+  width: fit-content;
+  max-width: var(--requirement-card-content-width, 254px);
+  margin: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--requirement-card-ink);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.canvas-card-position:not(.is-connection-source):not(.is-connection-selected):not(.is-dragging):hover
+  .canvas-card--requirement {
+  border-color: var(--requirement-card-border-hover);
+  box-shadow: var(--requirement-card-shadow-hover);
+}
+
+.canvas-card-position.is-dragging .canvas-card--requirement {
+  border-color: var(--requirement-card-border-hover);
+  box-shadow: var(--requirement-card-shadow-dragging);
+  transition: none;
+}
+
 .canvas-card--gap {
   position: relative;
   isolation: isolate;
@@ -1431,12 +1565,6 @@ button:disabled {
   text-wrap: pretty;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
-}
-
-.gap-card__missing-line {
-  width: 100%;
-  margin-top: calc(var(--gap-card-footer-gap, 20px) - var(--gap-card-content-gap, 18px));
-  border-top: 2px dashed var(--gap-card-rule);
 }
 
 .canvas-card-position:not(.is-connection-source):not(.is-connection-selected):not(.is-dragging):hover

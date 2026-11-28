@@ -56,6 +56,7 @@ import {
   RESOURCE_SEARCH_FILTERS,
   resourceSearchFilter,
 } from './domain/resource-search-filters.js';
+import { deriveAppSurface } from './domain/app-surface.js';
 import {
   beginResourcePlacement,
   cancelResourcePlacement,
@@ -85,6 +86,7 @@ import {
   renderConnectionActionButton,
 } from './ui/connection-action-button.js';
 import { icon } from './ui/icons.js';
+import { guestLandingView } from './ui/guest-landing.js';
 import { resourceEditorView } from './ui/resource-editor.js';
 import { resourceDeleteDialogView } from './ui/resource-delete-dialog.js';
 import { findSpatialNeighbor } from './ui/spatial-focus.js';
@@ -96,7 +98,8 @@ function shellView() {
   return `
     <main class="app-shell">
       <header class="topbar">
-        <div class="topbar__actions">
+        <span class="topbar__brand" data-guest-brand hidden>Actions</span>
+        <div class="topbar__actions" data-account-actions>
           <button class="account-trigger" type="button" aria-label="Account" aria-expanded="false" data-account-button disabled>
             <span class="account-avatar" data-account-avatar aria-hidden="true" hidden>M</span>
             <span data-account-label>Checking…</span>
@@ -131,6 +134,8 @@ function shellView() {
           </div>
         </div>
       </header>
+
+      ${guestLandingView()}
 
       <section class="canvas" aria-label="Main canvas" data-canvas>
         <div class="board-viewport" data-canvas-viewport>
@@ -298,6 +303,11 @@ export function mountApp(root, {
   root.innerHTML = shellView();
 
   const elements = {
+    guestBrand: root.querySelector('[data-guest-brand]'),
+    guestLanding: root.querySelector('[data-guest-landing]'),
+    guestSignIn: root.querySelector('[data-guest-sign-in]'),
+    guestStatus: root.querySelector('[data-guest-status]'),
+    accountActions: root.querySelector('[data-account-actions]'),
     accountButton: root.querySelector('[data-account-button]'),
     accountAvatar: root.querySelector('[data-account-avatar]'),
     accountLabel: root.querySelector('[data-account-label]'),
@@ -308,6 +318,7 @@ export function mountApp(root, {
     signOut: root.querySelector('[data-sign-out]'),
     themePicker: root.querySelector('[data-theme-picker]'),
     themeOptions: [...root.querySelectorAll('[data-theme-value]')],
+    canvas: root.querySelector('[data-canvas]'),
     canvasViewport: root.querySelector('[data-canvas-viewport]'),
     canvasWorld: root.querySelector('[data-canvas-world]'),
     connectionLayer: root.querySelector('[data-connection-layer]'),
@@ -1162,9 +1173,19 @@ export function mountApp(root, {
   }
 
   function renderSession() {
-    const authenticated = state.sessionStatus === 'authenticated';
-    const checking = state.sessionStatus === 'checking';
+    const surface = deriveAppSurface(state.sessionStatus);
+    const { authenticated, checking } = surface;
     const email = state.user?.email ?? '';
+
+    elements.guestLanding.hidden = !surface.showGuestLanding;
+    elements.guestBrand.hidden = !surface.showGuestLanding;
+    elements.accountActions.hidden = !surface.showWorkspace;
+    elements.canvas.hidden = !surface.showWorkspace;
+    elements.composer.hidden = !surface.showWorkspace;
+    elements.guestSignIn.disabled = checking;
+    elements.guestSignIn.textContent = checking ? 'Checking…' : 'Sign in';
+    elements.guestStatus.textContent = state.error?.message ?? 'Uses your Majom ID';
+    elements.guestStatus.classList.toggle('is-error', Boolean(state.error));
 
     elements.accountButton.disabled = checking;
     elements.navigationHud.hidden = !authenticated;
@@ -2102,9 +2123,13 @@ export function mountApp(root, {
   function renderCanvas() {
     const items = state.canvas?.items ?? [];
     const authenticated = state.sessionStatus === 'authenticated';
-    const checking = state.sessionStatus === 'checking';
     elements.canvasItems.replaceChildren();
     cardElements.clear();
+
+    if (!authenticated) {
+      elements.emptyState.hidden = true;
+      return;
+    }
 
     for (const item of items) {
       const isExternalResource = isExternalCardType(item.kind);
@@ -2177,16 +2202,12 @@ export function mountApp(root, {
       connections: true,
     });
 
-    elements.emptyState.hidden = items.length > 0 && !state.error;
+    elements.emptyState.hidden = items.length > 0 && !state.error && !state.loading;
     elements.emptyAction.hidden = true;
     delete elements.emptyAction.dataset.action;
-    if (checking) {
+    if (state.loading) {
       elements.emptyTitle.textContent = 'Opening your Actions canvas';
-      elements.emptyCopy.textContent = 'Checking your Majom ID session…';
-    } else if (!authenticated) {
-      elements.emptyTitle.textContent = 'Sign in to open Actions';
-      elements.emptyCopy.textContent = state.error?.message
-        ?? 'Your canvas and its layout are tied to your Majom ID.';
+      elements.emptyCopy.textContent = 'Loading your canvas…';
     } else if (state.error) {
       elements.emptyAction.hidden = false;
       elements.emptyTitle.textContent = 'Couldn’t reach Actions backend';
@@ -2360,13 +2381,18 @@ export function mountApp(root, {
 
   elements.accountButton.addEventListener('click', () => {
     if (state.sessionStatus !== 'authenticated') {
-      authSession.startLogin();
       return;
     }
 
     const isOpening = elements.accountMenu.hidden;
     elements.accountMenu.hidden = !isOpening;
     elements.accountButton.setAttribute('aria-expanded', String(isOpening));
+  });
+
+  elements.guestSignIn.addEventListener('click', () => {
+    if (state.sessionStatus === 'guest') {
+      authSession.startLogin();
+    }
   });
 
   elements.switchAccount.addEventListener('click', () => {

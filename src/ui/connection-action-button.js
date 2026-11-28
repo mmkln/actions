@@ -55,10 +55,14 @@ function createIcon(name) {
 
 function initializeConnectionActionButton(button) {
   if (button.dataset.connectionActionReady === 'true') return;
+  const count = document.createElement('span');
+  count.className = 'connection-action-count';
+  count.hidden = true;
   button.replaceChildren(
     createIcon('link'),
     createIcon('plus'),
     createIcon('check'),
+    count,
   );
   button.dataset.connectionActionReady = 'true';
 }
@@ -67,8 +71,13 @@ export function renderConnectionActionButton(button, {
   state,
   title,
   ariaLabel = title,
+  count = null,
 }) {
   initializeConnectionActionButton(button);
+  const countElement = button.querySelector('.connection-action-count');
+  const showCount = Number.isInteger(count) && count >= 0;
+  countElement.hidden = !showCount;
+  countElement.textContent = showCount ? String(count) : '';
   button.dataset.connectionActionState = state;
   button.title = title;
   button.setAttribute('aria-label', ariaLabel);

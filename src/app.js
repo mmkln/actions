@@ -2465,7 +2465,8 @@ export function mountApp(root, {
     }
     if (
       (event.metaKey || event.ctrlKey)
-      && event.key.toLowerCase() === 'k'
+      && !event.altKey
+      && event.code === 'KeyK'
       && !elements.resourceSearch.disabled
     ) {
       event.preventDefault();
@@ -2484,7 +2485,8 @@ export function mountApp(root, {
       && state.canvasSelection.selectedIds.size > 0
       && !typing
       && (event.metaKey || event.ctrlKey)
-      && event.key.toLowerCase() === 'a'
+      && !event.altKey
+      && event.code === 'KeyA'
     ) {
       event.preventDefault();
       state.canvasSelection = setCanvasSelectionIds(

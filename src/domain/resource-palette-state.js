@@ -171,7 +171,7 @@ export function returnFromResourceCreation(state) {
   };
 }
 
-export function completeResourceCreation(state) {
+export function resetResourcePaletteAfterPlacement(state) {
   return {
     ...state,
     screen: RESOURCE_PALETTE_SCREENS.SEARCH,

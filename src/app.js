@@ -45,7 +45,7 @@ import {
   changeResourceFilter,
   changeResourceQuery,
   chooseResourceKind,
-  completeResourceCreation,
+  resetResourcePaletteAfterPlacement,
   createResourcePaletteState,
   failResourceSearch,
   finishResourceSearch,
@@ -1891,23 +1891,11 @@ export function mountApp(root, {
       const placedKey = resourceKey(resource.kind, resource.resource_id);
       showCompletedPlacement(placedKey);
       placementCompleted = true;
-      if (operation === 'create') {
-        state.resourcePalette = completeResourceCreation(
-          state.resourcePalette,
-        );
-        state.selectedSearchCommandKey = null;
-        shouldRefreshSearch = true;
-      } else {
-        state.resourcePalette = {
-          ...state.resourcePalette,
-          scrollTop: (
-            state.resourcePalette.screen === RESOURCE_PALETTE_SCREENS.SEARCH
-            && elements.resourceResults.childElementCount > 0
-          )
-            ? elements.resourceResults.scrollTop
-            : state.resourcePalette.scrollTop,
-        };
-      }
+      state.resourcePalette = resetResourcePaletteAfterPlacement(
+        state.resourcePalette,
+      );
+      state.selectedSearchCommandKey = null;
+      shouldRefreshSearch = true;
       renderCanvas();
       selectFirstAvailableSearchCommand();
     } catch (error) {

@@ -6,7 +6,7 @@ import {
   changeResourceFilter,
   changeResourceQuery,
   chooseResourceKind,
-  completeResourceCreation,
+  resetResourcePaletteAfterPlacement,
   createResourcePaletteState,
   failResourceSearch,
   finishResourceSearch,
@@ -32,17 +32,13 @@ test('returns from type selection to search', () => {
   assert.equal(searching.draft.selectedKind, null);
 });
 
-test('clears the draft after successful resource creation', () => {
+test('clears the search after a successful resource placement', () => {
   const queried = changeResourceQuery(
     createResourcePaletteState(),
     'Customer demand',
   );
-  const choosing = chooseResourceKind(
-    beginResourceCreation(queried),
-    'requirement',
-  );
 
-  const completed = completeResourceCreation(choosing);
+  const completed = resetResourcePaletteAfterPlacement(queried);
 
   assert.equal(completed.screen, 'search');
   assert.equal(completed.draft.title, '');
@@ -52,7 +48,7 @@ test('clears the draft after successful resource creation', () => {
   assert.equal(completed.search.status, 'debouncing');
   assert.equal(
     completed.search.requestId,
-    choosing.search.requestId + 1,
+    queried.search.requestId + 1,
   );
 });
 

@@ -42,3 +42,22 @@ test('reports busy state around the complete queue', async () => {
   assert.deepEqual(busyStates, [true, false]);
 });
 
+test('persists a group move as one layout batch', async () => {
+  const batches = [];
+  const queue = createLayoutUpdateQueue({
+    async persist(changes) {
+      batches.push(changes);
+    },
+  });
+
+  await queue.enqueueMany([
+    { itemId: 'one', x: 10, y: 20 },
+    { itemId: 'two', x: 30, y: 40 },
+  ]);
+
+  assert.deepEqual(batches, [[
+    { itemId: 'one', x: 10, y: 20 },
+    { itemId: 'two', x: 30, y: 40 },
+  ]]);
+});
+

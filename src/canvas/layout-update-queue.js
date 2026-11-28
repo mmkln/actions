@@ -44,12 +44,24 @@ export function createLayoutUpdateQueue({
     return activePromise;
   }
 
+  function enqueueMany(changes) {
+    if (closed) return Promise.resolve();
+
+    let added = false;
+    for (const change of changes ?? []) {
+      if (!validChange(change)) continue;
+      pendingByItem.set(change.itemId, { ...change });
+      added = true;
+    }
+
+    return added ? start() : Promise.resolve();
+  }
+
   return Object.freeze({
     enqueue(change) {
-      if (closed || !validChange(change)) return Promise.resolve();
-      pendingByItem.set(change.itemId, { ...change });
-      return start();
+      return enqueueMany([change]);
     },
+    enqueueMany,
     isBusy() {
       return activePromise !== null;
     },

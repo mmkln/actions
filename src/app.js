@@ -1,5 +1,4 @@
 import { loadCanvasCamera, saveCanvasCamera } from './canvas/camera-store.js';
-import { dragPosition } from './canvas/coordinate-space.js';
 import { buildRenderableConnections } from './canvas/connection-render-state.js';
 import { createConnectionRenderer } from './canvas/connection-renderer.js';
 import {
@@ -16,6 +15,15 @@ import { syncCanvasGrid } from './canvas/grid-projection.js';
 import { createLayoutUpdateQueue } from './canvas/layout-update-queue.js';
 import { planCanvasInsertion } from './canvas/placement.js';
 import { createCanvasRenderScheduler } from './canvas/render-scheduler.js';
+import {
+  captureSelectionOrigins,
+  createCanvasSelection,
+  selectCardsInRectangle,
+  selectionRectangle,
+  setCanvasSelectionIds,
+  toggleCanvasSelectionId,
+  translateSelectionOrigins,
+} from './canvas/selection.js';
 import { createCanvasViewportController } from './canvas/viewport-controller.js';
 import {
   findDemoResource,
@@ -128,6 +136,7 @@ function shellView() {
         <div class="board-viewport" data-canvas-viewport>
           <div class="canvas-world" data-canvas-world>
             <svg class="connection-layer" data-connection-layer aria-hidden="true"></svg>
+            <div class="canvas-selection-marquee" data-canvas-selection-marquee aria-hidden="true" hidden></div>
             <div class="canvas__items" data-canvas-items></div>
           </div>
         </div>
@@ -156,6 +165,12 @@ function shellView() {
         <button class="connection-toolbar__cancel" type="button" data-connection-cancel>Cancel</button>
         <span class="connection-toolbar__count" data-connection-count>0 selected</span>
         <button class="connection-toolbar__done" type="button" data-connection-done>Done</button>
+      </div>
+
+      <div class="connection-toolbar canvas-selection-toolbar" role="toolbar" aria-label="Selected canvas items" data-canvas-selection-toolbar hidden>
+        <button class="connection-toolbar__cancel" type="button" data-canvas-selection-clear>Clear</button>
+        <span class="connection-toolbar__count" data-canvas-selection-count>0 selected</span>
+        <button class="connection-toolbar__done" type="button" data-canvas-selection-done>Done</button>
       </div>
 
       <div class="canvas-action-toast" role="status" data-canvas-action-toast hidden>
@@ -296,6 +311,7 @@ export function mountApp(root, {
     canvasViewport: root.querySelector('[data-canvas-viewport]'),
     canvasWorld: root.querySelector('[data-canvas-world]'),
     connectionLayer: root.querySelector('[data-connection-layer]'),
+    canvasSelectionMarquee: root.querySelector('[data-canvas-selection-marquee]'),
     canvasItems: root.querySelector('[data-canvas-items]'),
     navigationHud: root.querySelector('[data-navigation-hud]'),
     fitCanvas: root.querySelector('[data-fit-canvas]'),
@@ -335,6 +351,10 @@ export function mountApp(root, {
     connectionCancel: root.querySelector('[data-connection-cancel]'),
     connectionCount: root.querySelector('[data-connection-count]'),
     connectionDone: root.querySelector('[data-connection-done]'),
+    canvasSelectionToolbar: root.querySelector('[data-canvas-selection-toolbar]'),
+    canvasSelectionCount: root.querySelector('[data-canvas-selection-count]'),
+    canvasSelectionClear: root.querySelector('[data-canvas-selection-clear]'),
+    canvasSelectionDone: root.querySelector('[data-canvas-selection-done]'),
     canvasActionToast: root.querySelector('[data-canvas-action-toast]'),
     canvasActionMessage: root.querySelector('[data-canvas-action-message]'),
     canvasActionUndo: root.querySelector('[data-canvas-action-undo]'),
@@ -372,6 +392,7 @@ export function mountApp(root, {
     connectionEditor: null,
     connectionSaving: false,
     connectionError: null,
+    canvasSelection: createCanvasSelection(),
     pendingRemoval: null,
     resourceEditor: createResourceEditorState(),
     resourceDeletion: createResourceDeleteState(),
@@ -385,6 +406,7 @@ export function mountApp(root, {
   let removalTimer = null;
   let placementFeedbackTimer = null;
   let previousCardClick = null;
+  let canvasSelectionGesture = null;
 
   const platform = navigator.userAgentData?.platform ?? navigator.platform ?? '';
   const isApplePlatform = /Mac|iPhone|iPad|iPod/i.test(platform);
@@ -606,13 +628,84 @@ export function mountApp(root, {
     return (state.canvas?.items ?? []).find(({ id }) => id === itemId) ?? null;
   }
 
+  function itemResource(item) {
+    return state.resources.get(
+      resourceKey(item.kind, item.resource_id),
+    ) ?? findDemoResource(item) ?? resolveResource(item);
+  }
+
+  function getCanvasSelectionCards() {
+    return (state.canvas?.items ?? []).map((item) => {
+      const card = cardElements.get(item.id)?.querySelector('.canvas-card');
+      const geometry = canvasCardGeometry(
+        item.kind,
+        itemResource(item).title,
+      );
+      return {
+        id: item.id,
+        x: item.x,
+        y: item.y,
+        width: card?.offsetWidth || geometry.width,
+        height: card?.offsetHeight || geometry.height,
+      };
+    });
+  }
+
+  function renderCanvasSelectionMarquee(rectangle) {
+    const marquee = elements.canvasSelectionMarquee;
+    root.classList.toggle('is-canvas-marquee-active', Boolean(rectangle));
+    if (!rectangle) {
+      marquee.hidden = true;
+      return;
+    }
+
+    marquee.hidden = false;
+    marquee.style.left = `${rectangle.left}px`;
+    marquee.style.top = `${rectangle.top}px`;
+    marquee.style.width = `${rectangle.right - rectangle.left}px`;
+    marquee.style.height = `${rectangle.bottom - rectangle.top}px`;
+  }
+
+  function renderCanvasSelectionUi() {
+    const availableIds = new Set(
+      (state.canvas?.items ?? []).map(({ id }) => id),
+    );
+    state.canvasSelection = setCanvasSelectionIds(
+      state.canvasSelection,
+      [...state.canvasSelection.selectedIds].filter(
+        (itemId) => availableIds.has(itemId),
+      ),
+    );
+
+    const count = state.canvasSelection.selectedIds.size;
+    root.classList.toggle('is-canvas-selection-active', count > 0);
+    elements.canvasSelectionToolbar.hidden = count === 0;
+    elements.canvasSelectionCount.textContent = `${count} selected`;
+    cardElements.forEach((element, itemId) => {
+      element.classList.toggle(
+        'is-canvas-selected',
+        state.canvasSelection.selectedIds.has(itemId),
+      );
+    });
+  }
+
+  function clearCanvasSelection() {
+    state.canvasSelection = createCanvasSelection();
+    canvasSelectionGesture = null;
+    renderCanvasSelectionMarquee(null);
+    renderCanvasSelectionUi();
+  }
+
   function canvasContentBounds() {
     const items = state.canvas?.items ?? [];
     if (!items.length) return null;
 
     const boxes = items.map((item) => {
       const card = cardElements.get(item.id)?.querySelector('.canvas-card');
-      const geometry = canvasCardGeometry(item.kind);
+      const geometry = canvasCardGeometry(
+        item.kind,
+        itemResource(item).title,
+      );
       return {
         x: item.x,
         y: item.y,
@@ -708,6 +801,135 @@ export function mountApp(root, {
     onCommit(camera) {
       saveCanvasCamera(localStorage, state.user?.id, camera);
     },
+  });
+
+  const SELECTION_DRAG_THRESHOLD_PX = 6;
+
+  function selectionInteractionBlocked() {
+    return Boolean(
+      state.saving
+      || state.connectionEditor
+      || state.connectionSaving
+      || state.resourceEditor.resource
+      || state.resourceDeletion.resource
+    );
+  }
+
+  function beginCanvasSelection(event) {
+    if (
+      event.button !== 2
+      || event.pointerType !== 'mouse'
+      || selectionInteractionBlocked()
+    ) return;
+    if (
+      event.target instanceof Element
+      && event.target.closest('button, input, textarea, select, a')
+    ) return;
+
+    const cardId = event.target instanceof Element
+      ? event.target.closest('.canvas-card-position')?.dataset.itemId ?? null
+      : null;
+
+    canvasSelectionGesture = {
+      pointerId: event.pointerId,
+      phase: 'pending',
+      cardId,
+      startClient: { x: event.clientX, y: event.clientY },
+      startWorld: viewportController.clientToWorld({
+        x: event.clientX,
+        y: event.clientY,
+      }),
+      additive: event.shiftKey || event.ctrlKey || event.metaKey,
+      previousIds: new Set(state.canvasSelection.selectedIds),
+      baseIds: null,
+    };
+
+    elements.canvasViewport.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
+
+  function moveCanvasSelection(event) {
+    const gesture = canvasSelectionGesture;
+    if (!gesture || event.pointerId !== gesture.pointerId) return;
+
+    if (gesture.phase === 'pending') {
+      const distance = Math.hypot(
+        event.clientX - gesture.startClient.x,
+        event.clientY - gesture.startClient.y,
+      );
+      if (distance < SELECTION_DRAG_THRESHOLD_PX) return;
+
+      // A right drag that starts on a card must not become a marquee.
+      if (gesture.cardId) {
+        canvasSelectionGesture = null;
+        return;
+      }
+
+      gesture.phase = 'marquee';
+      gesture.baseIds = gesture.additive
+        ? new Set(gesture.previousIds)
+        : new Set();
+      state.canvasSelection = setCanvasSelectionIds(
+        state.canvasSelection,
+        gesture.baseIds,
+      );
+    }
+
+    const rectangle = selectionRectangle(
+      gesture.startWorld,
+      viewportController.clientToWorld({
+        x: event.clientX,
+        y: event.clientY,
+      }),
+    );
+    const intersectingIds = selectCardsInRectangle(
+      getCanvasSelectionCards(),
+      rectangle,
+    );
+    state.canvasSelection = setCanvasSelectionIds(
+      state.canvasSelection,
+      [...gesture.baseIds, ...intersectingIds],
+    );
+    renderCanvasSelectionMarquee(rectangle);
+    renderCanvasSelectionUi();
+  }
+
+  function finishCanvasSelection(event, { cancelled = false } = {}) {
+    const gesture = canvasSelectionGesture;
+    if (!gesture || event.pointerId !== gesture.pointerId) return;
+
+    canvasSelectionGesture = null;
+    renderCanvasSelectionMarquee(null);
+
+    if (cancelled) {
+      state.canvasSelection = setCanvasSelectionIds(
+        state.canvasSelection,
+        gesture.previousIds,
+      );
+    } else if (gesture.phase === 'pending' && gesture.cardId) {
+      state.canvasSelection = toggleCanvasSelectionId(
+        state.canvasSelection,
+        gesture.cardId,
+      );
+    }
+
+    renderCanvasSelectionUi();
+  }
+
+  elements.canvasViewport.addEventListener('pointerdown', beginCanvasSelection);
+  elements.canvasViewport.addEventListener('pointermove', moveCanvasSelection);
+  elements.canvasViewport.addEventListener('pointerup', (event) => {
+    finishCanvasSelection(event);
+  });
+  elements.canvasViewport.addEventListener('pointercancel', (event) => {
+    finishCanvasSelection(event, { cancelled: true });
+  });
+  elements.canvasViewport.addEventListener('contextmenu', (event) => {
+    if (
+      event.target instanceof Element
+      && event.target.closest('button, input, textarea, select, a')
+    ) return;
+    event.preventDefault();
   });
 
   const layoutUpdates = createLayoutUpdateQueue({
@@ -812,6 +1034,7 @@ export function mountApp(root, {
       || layoutUpdates.isBusy()
     ) return;
 
+    clearCanvasSelection();
     closeAccountMenu();
     closeResourceSearch();
     state.connectionError = null;
@@ -991,21 +1214,33 @@ export function mountApp(root, {
       || state.saving
       || state.connectionEditor
       || state.resourceEditor.resource
+      || state.resourceDeletion.resource
     ) return;
     if (event.target.closest('button, input, textarea, select, a')) return;
 
     event.preventDefault();
     const pointerStart = { x: event.clientX, y: event.clientY };
-    const itemStart = { x: item.x, y: item.y };
-    const pointerWorld = viewportController.clientToWorld(pointerStart);
-    const offset = {
-      x: pointerWorld.x - item.x,
-      y: pointerWorld.y - item.y,
-    };
-    let nextPosition = { ...itemStart };
+    const pointerStartWorld = viewportController.clientToWorld(pointerStart);
+    const selectionIncludesItem = state.canvasSelection.selectedIds.has(item.id);
+    const movingItems = selectionIncludesItem
+      ? state.canvas.items.filter(({ id }) => (
+          state.canvasSelection.selectedIds.has(id)
+        ))
+      : [item];
+    const movingIds = movingItems.map(({ id }) => id);
+    const origins = captureSelectionOrigins(
+      state.canvas.items,
+      new Set(movingIds),
+    );
     let dragging = false;
 
     position.setPointerCapture(event.pointerId);
+
+    function renderDraggingState(active) {
+      movingIds.forEach((itemId) => {
+        cardElements.get(itemId)?.classList.toggle('is-dragging', active);
+      });
+    }
 
     function onPointerMove(moveEvent) {
       if (moveEvent.pointerId !== event.pointerId) return;
@@ -1016,21 +1251,32 @@ export function mountApp(root, {
         );
         if (distance < 6) return;
         dragging = true;
-        bringCardToFront(position);
-        position.classList.add('is-dragging');
+        movingIds.forEach((itemId) => {
+          const element = cardElements.get(itemId);
+          if (element) bringCardToFront(element);
+        });
+        renderDraggingState(true);
       }
 
-      nextPosition = dragPosition(
-        viewportController.clientToWorld({
-          x: moveEvent.clientX,
-          y: moveEvent.clientY,
-        }),
-        offset,
+      const pointer = viewportController.clientToWorld({
+        x: moveEvent.clientX,
+        y: moveEvent.clientY,
+      });
+      const positions = translateSelectionOrigins(
+        origins,
+        {
+          x: pointer.x - pointerStartWorld.x,
+          y: pointer.y - pointerStartWorld.y,
+        },
       );
-      item.x = nextPosition.x;
-      item.y = nextPosition.y;
+      positions.forEach(({ id, x, y }) => {
+        const movedItem = itemById(id);
+        if (!movedItem) return;
+        movedItem.x = x;
+        movedItem.y = y;
+      });
       renderScheduler.request({
-        items: [item.id],
+        items: movingIds,
         connections: true,
       });
     }
@@ -1040,7 +1286,7 @@ export function mountApp(root, {
       position.removeEventListener('pointermove', onPointerMove);
       position.removeEventListener('pointerup', finishDrag);
       position.removeEventListener('pointercancel', cancelDrag);
-      position.classList.remove('is-dragging');
+      renderDraggingState(false);
 
       if (!dragging) {
         if (
@@ -1054,30 +1300,37 @@ export function mountApp(root, {
 
       previousCardClick = null;
 
-      item.x = Math.round(nextPosition.x);
-      item.y = Math.round(nextPosition.y);
+      const changes = movingItems.map((movedItem) => {
+        movedItem.x = Math.round(movedItem.x);
+        movedItem.y = Math.round(movedItem.y);
+        return {
+          itemId: movedItem.id,
+          x: movedItem.x,
+          y: movedItem.y,
+        };
+      });
       renderScheduler.request({
-        items: [item.id],
+        items: movingIds,
         connections: true,
       });
-      layoutUpdates.enqueue({
-        itemId: item.id,
-        x: item.x,
-        y: item.y,
-      });
+      layoutUpdates.enqueueMany(changes);
     }
 
     function cancelDrag(cancelEvent) {
       if (cancelEvent.pointerId !== event.pointerId) return;
-      item.x = itemStart.x;
-      item.y = itemStart.y;
+      origins.forEach((origin, itemId) => {
+        const movedItem = itemById(itemId);
+        if (!movedItem) return;
+        movedItem.x = origin.x;
+        movedItem.y = origin.y;
+      });
       position.removeEventListener('pointermove', onPointerMove);
       position.removeEventListener('pointerup', finishDrag);
       position.removeEventListener('pointercancel', cancelDrag);
-      position.classList.remove('is-dragging');
+      renderDraggingState(false);
       previousCardClick = null;
       renderScheduler.request({
-        items: [item.id],
+        items: movingIds,
         connections: true,
       });
     }
@@ -1859,7 +2112,7 @@ export function mountApp(root, {
         resourceKey(item.kind, item.resource_id),
       );
       const demoResource = findDemoResource(item);
-      const resource = hydratedResource ?? demoResource ?? resolveResource(item);
+      const resource = itemResource(item);
       const editable = Boolean(
         authenticated
         && hydratedResource
@@ -1918,6 +2171,7 @@ export function mountApp(root, {
       elements.canvasItems.append(position);
     }
     renderConnectionUi();
+    renderCanvasSelectionUi();
     renderScheduler.request({
       allItems: true,
       connections: true,
@@ -1956,6 +2210,9 @@ export function mountApp(root, {
     state.error = null;
     state.connectionEditor = null;
     state.connectionError = null;
+    state.canvasSelection = createCanvasSelection();
+    canvasSelectionGesture = null;
+    renderCanvasSelectionMarquee(null);
     try {
       state.canvas = await api.getCanvas();
       state.connections = (state.canvas.connections ?? []).map(normalizeConnection);
@@ -2141,6 +2398,9 @@ export function mountApp(root, {
     state.connections = [];
     state.connectionEditor = null;
     state.connectionError = null;
+    state.canvasSelection = createCanvasSelection();
+    canvasSelectionGesture = null;
+    renderCanvasSelectionMarquee(null);
     state.resources = new Map();
     state.resourceEditor = createResourceEditorState();
     state.resourceDeletion = createResourceDeleteState();
@@ -2200,6 +2460,33 @@ export function mountApp(root, {
       void commitConnectionEditor();
       return;
     }
+    const typing = event.target instanceof Element
+      && Boolean(event.target.closest('input, textarea, [contenteditable="true"]'));
+    if (
+      !state.searchOpen
+      && state.canvasSelection.selectedIds.size > 0
+      && !typing
+      && (event.metaKey || event.ctrlKey)
+      && event.key.toLowerCase() === 'a'
+    ) {
+      event.preventDefault();
+      state.canvasSelection = setCanvasSelectionIds(
+        state.canvasSelection,
+        (state.canvas?.items ?? []).map(({ id }) => id),
+      );
+      renderCanvasSelectionUi();
+      return;
+    }
+    if (
+      !state.searchOpen
+      && state.canvasSelection.selectedIds.size > 0
+      && !typing
+      && event.key === 'Escape'
+    ) {
+      event.preventDefault();
+      clearCanvasSelection();
+      return;
+    }
     if (event.key === 'Escape') {
       if (state.searchOpen) {
         if (state.resourcePalette.screen === RESOURCE_PALETTE_SCREENS.SEARCH) {
@@ -2218,6 +2505,8 @@ export function mountApp(root, {
   elements.connectionDone.addEventListener('click', () => {
     void commitConnectionEditor();
   });
+  elements.canvasSelectionClear.addEventListener('click', clearCanvasSelection);
+  elements.canvasSelectionDone.addEventListener('click', clearCanvasSelection);
   elements.canvasActionUndo.addEventListener('click', () => {
     void undoItemRemoval();
   });

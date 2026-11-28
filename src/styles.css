@@ -3080,3 +3080,55 @@ button:disabled {
 
 }
 
+.canvas-selection-marquee {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--selection) 72%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--selection) 10%, transparent);
+}
+
+.canvas-selection-marquee[hidden] {
+  display: none;
+}
+
+.is-canvas-marquee-active .board-viewport {
+  cursor: crosshair;
+}
+
+.canvas-card-position.is-canvas-selected .canvas-card {
+  border-color: var(--selection);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--selection) 14%, transparent),
+    var(--shadow-card-dragging);
+}
+
+.canvas-card-position.is-canvas-selected::after {
+  content: "✓";
+  position: absolute;
+  z-index: 5;
+  top: -9px;
+  right: -9px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  color: var(--text-on-accent);
+  background: var(--selection);
+  box-shadow: var(--shadow-control);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.is-canvas-selection-active :is(
+  .connection-button,
+  .canvas-card-remove
+) {
+  opacity: 0;
+  pointer-events: none;
+}
+

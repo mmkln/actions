@@ -161,6 +161,7 @@
   --composer-highlight: rgba(255, 255, 255, 0.68);
   --composer-shadow: 0 14px 40px rgba(65, 39, 66, 0.14);
   --composer-bottom-inset: max(48px, env(safe-area-inset-bottom));
+  --composer-collapsed-height: 44px;
   --composer-height: 56px;
   color: var(--text-primary);
   background: var(--app-background);
@@ -2214,14 +2215,14 @@ button:disabled {
   right: 50%;
   bottom: var(--composer-bottom-inset);
   display: grid;
-  width: clamp(560px, 53vw, 850px);
-  min-height: var(--composer-height);
+  width: min(370px, calc(100vw - 32px));
+  min-height: var(--composer-collapsed-height);
   padding: 0;
   overflow: hidden;
   border: 1.5px solid var(--composer-border);
-  border-radius: 18px;
+  border-radius: 15px;
   background: var(--composer-surface);
-  box-shadow: var(--composer-shadow), inset 0 1px var(--composer-highlight);
+  box-shadow: var(--shadow-control), inset 0 1px var(--composer-highlight);
   transform: translateX(50%);
   backdrop-filter: blur(24px);
   transition:
@@ -2235,17 +2236,17 @@ button:disabled {
 
 .composer__bar {
   display: flex;
-  min-height: var(--composer-height);
+  min-height: var(--composer-collapsed-height);
   align-items: center;
-  gap: 22px;
-  padding: 0 22px;
+  gap: 12px;
+  padding: 0 16px;
 }
 
 .connection-toolbar {
   position: fixed;
   z-index: 11;
   right: 50%;
-  bottom: calc(var(--composer-bottom-inset) + var(--composer-height) + 12px);
+  bottom: calc(var(--composer-bottom-inset) + var(--composer-collapsed-height) + 12px);
   display: flex;
   min-height: 42px;
   align-items: center;
@@ -2310,7 +2311,7 @@ button:disabled {
 .canvas-action-toast {
   position: fixed;
   z-index: 12;
-  bottom: calc(var(--composer-bottom-inset) + var(--composer-height) + 12px);
+  bottom: calc(var(--composer-bottom-inset) + var(--composer-collapsed-height) + 12px);
   left: 50%;
   display: flex;
   width: max-content;
@@ -2362,7 +2363,7 @@ button:disabled {
   border-color: color-mix(in srgb, var(--accent) 34%, var(--composer-border));
   background: var(--composer-surface);
   box-shadow:
-    var(--composer-shadow),
+    var(--shadow-control),
     inset 0 1px var(--composer-highlight),
     0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
 }
@@ -2401,6 +2402,9 @@ button:disabled {
 
 .composer.is-open .composer__bar {
   order: -1;
+  min-height: var(--composer-height);
+  gap: 22px;
+  padding: 0 22px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -2410,16 +2414,16 @@ button:disabled {
 
 .composer__search-icon {
   display: grid;
-  width: 20px;
-  height: 20px;
+  width: 17px;
+  height: 17px;
   flex: 0 0 auto;
   place-items: center;
   color: var(--text-tertiary);
 }
 
 .composer__search-icon .icon {
-  width: 20px;
-  height: 20px;
+  width: 17px;
+  height: 17px;
 }
 
 .composer__search {
@@ -2432,7 +2436,7 @@ button:disabled {
   outline: 0;
   background: transparent;
   color: var(--text-primary);
-  font-size: 17px;
+  font-size: 14.5px;
   font-weight: 450;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2449,7 +2453,7 @@ button:disabled {
 
 .composer__shortcut {
   display: inline-flex;
-  height: 25px;
+  height: 23px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -2462,7 +2466,7 @@ button:disabled {
   background: color-mix(in srgb, var(--text-primary) 4%, transparent);
   box-shadow: inset 0 1px color-mix(in srgb, var(--text-primary) 6%, transparent);
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
@@ -2470,11 +2474,11 @@ button:disabled {
 
 .composer__shortcut span {
   display: inline-flex;
-  min-width: 24px;
+  min-width: 21px;
   height: 100%;
   align-items: center;
   justify-content: center;
-  padding: 0 6px;
+  padding: 0 5px;
   border: 0;
   background: transparent;
 }
@@ -2486,6 +2490,26 @@ button:disabled {
 
 .composer__shortcut[hidden] {
   display: none;
+}
+
+.composer.is-open .composer__search-icon,
+.composer.is-open .composer__search-icon .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.composer.is-open .composer__search {
+  font-size: 17px;
+}
+
+.composer.is-open .composer__shortcut {
+  height: 25px;
+  font-size: 13px;
+}
+
+.composer.is-open .composer__shortcut span {
+  min-width: 24px;
+  padding: 0 6px;
 }
 
 .composer__clear {
@@ -3202,7 +3226,7 @@ button:disabled {
   position: fixed;
   z-index: 9;
   right: 24px;
-  bottom: calc(var(--composer-bottom-inset) + var(--composer-height) + 12px);
+  bottom: calc(var(--composer-bottom-inset) + var(--composer-collapsed-height) + 12px);
   display: block;
 }
 
@@ -3290,11 +3314,11 @@ button:disabled {
   }
 
   .composer {
-    width: calc(100vw - 32px);
-    min-height: 58px;
-    gap: 11px;
-    padding: 0 16px;
-    border-radius: 19px;
+    width: min(370px, calc(100vw - 32px));
+    min-height: var(--composer-collapsed-height);
+    gap: 0;
+    padding: 0;
+    border-radius: 15px;
   }
 
   .composer.is-open {
